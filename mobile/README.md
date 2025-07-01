@@ -29,9 +29,9 @@ The static website provides:
 - 📱 APK download (optional)
 
 > Hosted publicly using GitHub Pages:  
-👉 [https://your-username.github.io/AutoMark-CS-Project/website](https://your-username.github.io/AutoMark-CS-Project/website)
+👉https://Lyazi-Patrick.github.io/AutoMark-CS-Project/website/
 
----
+
 
 ## 🛠 Technologies Used
 

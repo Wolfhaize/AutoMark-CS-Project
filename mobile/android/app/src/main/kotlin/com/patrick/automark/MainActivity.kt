@@ -1,4 +1,4 @@
-package com.example.mobile
+package com.patrick.automark
 
 import io.flutter.embedding.android.FlutterActivity
 

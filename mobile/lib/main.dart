@@ -2,10 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'providers/answer_provider.dart';
 import 'providers/result_provider.dart';
-import 'screens/home_screen.dart';
+/*import 'screens/home_screen.dart';
 import 'screens/upload_script_screen.dart';
 import 'screens/answer_key_screen.dart';
-import 'screens/result_screen.dart';
+import 'screens/result_screen.dart';*/
 
 void main(){
   runApp(const AutoMarkApp());
@@ -26,10 +26,10 @@ class AutoMarkApp extends StatelessWidget{
         useMaterial3: true,),
         initialRoute:'/',
         routes:{
-          '/':(context) => const HomeScreen(),
+         /* '/':(context) => const HomeScreen(),
           '/upload':(context) => const AnswerKeyScreen(),
           '/result':(context) => const ResultScreen(),
-        },
+        */},
       ),
     );
   }

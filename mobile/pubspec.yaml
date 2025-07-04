@@ -36,11 +36,11 @@ dependencies:
   cupertino_icons: ^1.0.8
 
   # Firebase
-  firebase_core: ^3.15.1
-  firebase_auth: ^5.6.2
-  cloud_firestore: ^5.6.11
-  firebase_storage: ^12.4.9
-
+  firebase_core: ^2.25.4
+  firebase_auth: ^4.17.4
+  cloud_firestore: ^4.17.3
+  firebase_storage: ^11.6.5
+ 
   # OCR & Image
   image_picker: ^1.0.4
   google_mlkit_text_recognition: ^0.15.0

@@ -1,22 +1,29 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
-import 'firebase_options.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:provider/provider.dart';
+import 'widgets/auth_guard.dart';
+
+import 'firebase_options.dart';
 import 'providers/answer_provider.dart';
 import 'providers/result_provider.dart';
-/*import 'screens/home_screen.dart';
+
+import 'screens/home_screen.dart';
 import 'screens/upload_script_screen.dart';
 import 'screens/answer_key_screen.dart';
-import 'screens/result_screen.dart';*/
+import 'screens/result_screen.dart';
 import 'screens/signup_screen.dart';
+import 'screens/login_screen.dart';
+import 'screens/scan_screen.dart';
+import 'screens/settings_screen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  //Initialize Firebase before the app starts
   await Firebase.initializeApp(
-    options:DefaultFirebaseOptions.currentPlatform,
+    options: DefaultFirebaseOptions.currentPlatform,
   );
+
   runApp(const AutoMarkApp());
 }
 
@@ -37,15 +44,46 @@ class AutoMarkApp extends StatelessWidget {
           primarySwatch: Colors.green,
           useMaterial3: true,
         ),
-        initialRoute: '/signup', // Use this for now to test SignUp screen
+        home: const AuthWrapper(), //  dynamic entry point
         routes: {
+          '/login': (context) => const LoginScreen(),
           '/signup': (context) => const SignUpScreen(),
-          // '/': (context) => const HomeScreen(),
-          // '/upload': (context) => const AnswerKeyScreen(),
-          // '/result': (context) => const ResultScreen(),
+          '/home': (context) => const AuthGuard(child: HomeScreen()),
+          '/upload': (context) => const AuthGuard(child: UploadScriptScreen()),
+          '/answer_key': (context) => const AuthGuard(child:AnswerKeyScreen()),
+          '/result': (context) => const AuthGuard(child:ResultScreen()),
+          '/scan': (context) => const AuthGuard(child: ScanScreen()),
+          '/settings': (context) => const AuthGuard(child: SettingsScreen()),
         },
       ),
     );
   }
 }
-   
+
+/// This decides whether to go to login or home automatically
+class AuthWrapper extends StatelessWidget {
+  const AuthWrapper({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return StreamBuilder<User?>(
+      stream: FirebaseAuth.instance.authStateChanges(),
+      builder: (context, snapshot) {
+        // Waiting for Firebase to initialize
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Scaffold(
+            body: Center(child: CircularProgressIndicator()),
+          );
+        }
+
+        // If user is logged in, show home
+        if (snapshot.hasData) {
+          return const HomeScreen();
+        }
+
+        // Otherwise show login
+        return const LoginScreen();
+      },
+    );
+  }
+}

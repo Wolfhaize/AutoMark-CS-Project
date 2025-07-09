@@ -30,6 +30,7 @@ android {
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode
         versionName = flutter.versionName
+        multiDexEnabled = true
     }
 
     buildTypes {
@@ -43,4 +44,9 @@ android {
 
 flutter {
     source = "../.."
+}
+
+dependencies{
+    implementation("androidx.multidex:multidex:2.0.1")
+    implementation("com.google.mlkit:text-recognition:16.0.0-beta3")
 }

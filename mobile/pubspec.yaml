@@ -36,16 +36,24 @@ dependencies:
   cupertino_icons: ^1.0.8
 
   # Firebase
-  firebase_core: ^2.25.4
-  firebase_auth: ^4.17.4
-  cloud_firestore: ^4.17.3
-  firebase_storage: ^11.6.5
+  firebase_core: ^3.15.1
+  firebase_auth: ^5.6.2
+  cloud_firestore: ^5.6.11
+  firebase_storage: ^12.4.9
+
+  #File and Pdf Handling
   pdf: ^3.10.4
-  printing: ^5.11.1
+  printing: ^5.14.2
+  path_provider: ^2.1.1  
+  file_picker: ^6.1.1
+  syncfusion_flutter_pdf: ^24.2.6
+  path: ^1.8.3
+  docx_to_text: ^1.0.1
+
+  #Utilities
   shared_preferences: ^2.2.2
-  permission_handler: ^11.0.1
-  path_provider: ^2.1.1
-  intl: ^0.18.1
+  permission_handler: ^12.0.1
+  intl: ^0.19.0
  
   # OCR & Image
   image_picker: ^1.0.4

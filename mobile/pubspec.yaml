@@ -45,10 +45,12 @@ dependencies:
   pdf: ^3.10.4
   printing: ^5.14.2
   path_provider: ^2.1.1  
-  file_picker: ^6.1.1
+  file_picker: ^10.2.0
   syncfusion_flutter_pdf: ^24.2.6
   path: ^1.8.3
   docx_to_text: ^1.0.1
+  archive: ^3.3.8
+  xml: ^6.3.0
 
   #Utilities
   shared_preferences: ^2.2.2

@@ -5,6 +5,7 @@ import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
 import '../providers/answer_provider.dart';
 import '../providers/result_provider.dart';
+import '../widgets/custom_drawer.dart'; // ✅ Corrected import
 
 class ScanScreen extends StatefulWidget {
   const ScanScreen({super.key});
@@ -16,29 +17,53 @@ class ScanScreen extends StatefulWidget {
 class _ScanScreenState extends State<ScanScreen> {
   String scannedText = '';
   File? _pickedImage;
+  bool _fromBatchScan = false;
 
-  Future<void> _pickImage() async {
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+
+    final args = ModalRoute.of(context)?.settings.arguments;
+    if (args is String && scannedText.isEmpty) {
+      setState(() {
+        scannedText = args;
+        _fromBatchScan = true;
+      });
+
+      final studentAnswers = args
+          .replaceAll('\n', ',')
+          .split(',')
+          .map((e) => e.trim().toUpperCase())
+          .where((e) => e.isNotEmpty)
+          .toList();
+
+      final correctAnswers = context.read<AnswerProvider>().correctAnswers;
+      context.read<ResultProvider>().calculateScore(studentAnswers, correctAnswers);
+    }
+  }
+
+  Future<void> _pickImage(ImageSource source) async {
     final picker = ImagePicker();
-    final pickedFile = await picker.pickImage(source: ImageSource.gallery);
+    final pickedFile = await picker.pickImage(source: source);
 
     if (pickedFile == null) return;
 
     final imageFile = File(pickedFile.path);
     setState(() {
       _pickedImage = imageFile;
+      scannedText = '';
     });
 
     final inputImage = InputImage.fromFile(imageFile);
     final textRecognizer = TextRecognizer(script: TextRecognitionScript.latin);
-    final RecognizedText recognizedText = await textRecognizer.processImage(inputImage);
+    final recognizedText = await textRecognizer.processImage(inputImage);
 
-    String extractedText = recognizedText.text;
+    final extractedText = recognizedText.text;
     setState(() {
       scannedText = extractedText;
     });
 
-    // Convert text to answers
-    List<String> studentAnswers = extractedText
+    final studentAnswers = extractedText
         .replaceAll('\n', ',')
         .split(',')
         .map((e) => e.trim().toUpperCase())
@@ -48,9 +73,8 @@ class _ScanScreenState extends State<ScanScreen> {
     final correctAnswers = context.read<AnswerProvider>().correctAnswers;
     context.read<ResultProvider>().calculateScore(studentAnswers, correctAnswers);
 
-    textRecognizer.close();
+    await textRecognizer.close();
 
-    // Navigate to result screen
     Navigator.pushNamed(context, '/result');
   }
 
@@ -58,24 +82,38 @@ class _ScanScreenState extends State<ScanScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(title: const Text("Scan Script")),
+      drawer: const CustomDrawer(), // ✅ Add drawer here
       body: Padding(
         padding: const EdgeInsets.all(20),
         child: Column(
           children: [
-            ElevatedButton.icon(
-              onPressed: _pickImage,
-              icon: const Icon(Icons.upload),
-              label: const Text("Pick Image"),
-            ),
+            if (!_fromBatchScan)
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                children: [
+                  ElevatedButton.icon(
+                    onPressed: () => _pickImage(ImageSource.gallery),
+                    icon: const Icon(Icons.photo_library),
+                    label: const Text("Gallery"),
+                  ),
+                  ElevatedButton.icon(
+                    onPressed: () => _pickImage(ImageSource.camera),
+                    icon: const Icon(Icons.camera_alt),
+                    label: const Text("Camera"),
+                  ),
+                ],
+              ),
             const SizedBox(height: 20),
             _pickedImage != null
                 ? Image.file(_pickedImage!, height: 200)
-                : const Text("No image selected."),
+                : !_fromBatchScan
+                    ? const Text("No image selected.")
+                    : const SizedBox(),
             const SizedBox(height: 20),
             Expanded(
               child: SingleChildScrollView(
                 child: Text(
-                  scannedText,
+                  scannedText.isEmpty ? "No text extracted." : scannedText,
                   style: const TextStyle(fontSize: 16),
                 ),
               ),

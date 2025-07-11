@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:mobile/screens/unmarked_scripts.dart';
 import 'package:provider/provider.dart';
 import 'widgets/auth_guard.dart';
 
@@ -16,6 +17,10 @@ import 'screens/signup_screen.dart';
 import 'screens/login_screen.dart';
 import 'screens/scan_screen.dart';
 import 'screens/settings_screen.dart';
+import 'screens/profile_screen.dart';
+import 'screens/unmarked_scripts.dart';
+import 'screens/mark_script_screen.dart';
+import 'screens/marked_scripts.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -54,6 +59,10 @@ class AutoMarkApp extends StatelessWidget {
           '/result': (context) => const AuthGuard(child:ResultScreen()),
           '/scan': (context) => const AuthGuard(child: ScanScreen()),
           '/settings': (context) => const AuthGuard(child: SettingsScreen()),
+          '/profile': (context) => const AuthGuard(child: ProfileScreen()),
+          '/unmarked':(context) => const AuthGuard(child: UnmarkedScriptsScreen()),
+          '/mark_script': (context) => AuthGuard(child: MarkScriptScreen()),
+          '/marked_scripts': (context) => AuthGuard(child: MarkedScriptsScreen()),
         },
       ),
     );

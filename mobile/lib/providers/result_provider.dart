@@ -1,40 +1,59 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 
-class GradeResult{
-  final String studentId;
-  final List<String>studentAnswers;
-  final double score;
+class ResultProvider with ChangeNotifier {
+  List<Map<String, dynamic>> _results = [];
+  bool _isLoading = false;
 
-  GradeResult({
-    required this.studentId,
-    required this.studentAnswers,
-    required this.score,
-  });
-}
+  List<Map<String, dynamic>> get results => _results;
+  bool get isLoading => _isLoading;
 
-class ResultProvider extends ChangeNotifier {
-  List<GradeResult> _results = [];
-  
-  //Getter
-  List<GradeResult> get results => _results;
+  double get averageScore {
+    if (_results.isEmpty) return 0;
+    final total = _results.fold(0, (sum, r) => sum + (r['score'] ?? 0));
+    return total / _results.length;
+  }
 
-  //Add a new result
-  void addResult(GradeResult result){
-    _results.add(result);
+  int get totalSubmissions => _results.length;
+
+  Future<void> fetchResults() async {
+    _isLoading = true;
+    notifyListeners();
+
+    try {
+      final snapshot = await FirebaseFirestore.instance
+          .collection('results')
+          .orderBy('timestamp', descending: true)
+          .get();
+
+      _results = snapshot.docs.map((doc) {
+        final data = doc.data();
+        return {
+          'id': doc.id,
+          'name': data['name'] ?? 'Unknown',
+          'score': data['score'] ?? 0,
+          'total': data['total'] ?? 0,
+          'timestamp': data['timestamp'],
+          'method': data['method'] ?? 'auto',
+        };
+      }).toList();
+    } catch (e) {
+      print('❌ Failed to fetch results: $e');
+    }
+
+    _isLoading = false;
     notifyListeners();
   }
-  //clear all Results
-  void clearResults(){
+
+  Map<String, dynamic> getStudentResultByName(String name) {
+    return _results.firstWhere(
+      (r) => r['name'] == name,
+      orElse: () => {'score': 0, 'total': 0},
+    );
+  }
+
+  void clear() {
     _results.clear();
     notifyListeners();
-  }
-
-  //get result by Id
-  GradeResult? getResultById(String id){
-    try{
-      return _results.firstWhere((res) => res.studentId == id);
-    } catch (e){
-      return null;
-    }
   }
 }

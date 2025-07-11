@@ -2,7 +2,8 @@ buildscript {
     repositories {
         google()
         mavenCentral()
-        maven(url = "https://jitpack.io")
+        maven(url = "https://jitpack.io")          // ✅ Added for pdfbox-android
+        maven(url = "https://maven.google.com")    // ✅ Optional fallback
     }
     dependencies {
         classpath("com.google.gms:google-services:4.3.15")
@@ -13,9 +14,12 @@ allprojects {
     repositories {
         google()
         mavenCentral()
+        maven(url = "https://jitpack.io")          // ✅ Ensure this is here too
+        maven(url = "https://maven.google.com")
     }
 }
 
+// Keep your custom build directory structure
 val newBuildDir: Directory = rootProject.layout.buildDirectory.dir("../../build").get()
 rootProject.layout.buildDirectory.value(newBuildDir)
 

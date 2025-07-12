@@ -3,10 +3,8 @@ import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:google_mlkit_text_recognition/google_mlkit_text_recognition.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:file_picker/file_picker.dart';
 import 'package:path/path.dart' as path;
 
-import '../services/file_parse_service.dart';
 import '../widgets/bottom_navbar.dart';
 import '../widgets/custom_drawer.dart';
 
@@ -74,29 +72,6 @@ class _UploadScriptScreenState extends State<UploadScriptScreen> {
     await _saveToFirestore(fullText);
   }
 
-  Future<void> _pickAndProcessFile() async {
-    try {
-      final result = await FilePicker.platform.pickFiles(
-        type: FileType.custom,
-        allowedExtensions: ['pdf', 'docx'],
-      );
-
-      if (result != null && result.files.single.path != null) {
-        final file = File(result.files.single.path!);
-        setState(() {
-          _extractedText = '';
-          _isLoading = true;
-        });
-
-        // ✅ Fixed method name here
-        final extractedText = await FileParseService.extractTextFromFile(file);
-        await _saveToFirestore(extractedText);
-      }
-    } catch (e) {
-      _showSnackBar("File processing failed: $e", isError: true);
-    }
-  }
-
   Future<void> _saveToFirestore(String text) async {
     final name = _nameController.text.trim().isEmpty
         ? 'Student ${DateTime.now().millisecondsSinceEpoch}'
@@ -149,7 +124,8 @@ class _UploadScriptScreenState extends State<UploadScriptScreen> {
                 children: [
                   Image.asset('assets/icons/bluetick.png', height: 28),
                   const SizedBox(width: 8),
-                  const Text('AutoMark', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+                  const Text('AutoMark',
+                      style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
                 ],
               ),
               const SizedBox(height: 20),
@@ -193,17 +169,13 @@ class _UploadScriptScreenState extends State<UploadScriptScreen> {
                     label: const Text("Camera"),
                     onPressed: _isLoading ? null : _pickImagesFromCamera,
                   ),
-                  ElevatedButton.icon(
-                    icon: const Icon(Icons.upload_file),
-                    label: const Text("File"),
-                    onPressed: _isLoading ? null : _pickAndProcessFile,
-                  ),
                 ],
               ),
 
               const SizedBox(height: 30),
               const Divider(),
-              const Text('Extracted Text:', style: TextStyle(fontWeight: FontWeight.bold)),
+              const Text('Extracted Text:',
+                  style: TextStyle(fontWeight: FontWeight.bold)),
               const SizedBox(height: 10),
               if (_isLoading)
                 const CircularProgressIndicator()

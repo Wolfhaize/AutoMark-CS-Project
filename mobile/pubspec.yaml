@@ -41,22 +41,22 @@ dependencies:
   cloud_firestore: ^5.6.11
   firebase_storage: ^12.4.9
 
-  #File and Pdf Handling
+  # File and Pdf Handling
   pdf: ^3.10.4
   printing: ^5.14.2
   path_provider: ^2.1.1  
-  file_picker: ^10.2.0
-  syncfusion_flutter_pdf: ^24.2.6
+  #file_picker: ^6.1.1
+  syncfusion_flutter_pdf: ^30.1.39
   path: ^1.8.3
   docx_to_text: ^1.0.1
   archive: ^3.3.8
   xml: ^6.3.0
 
-  #Utilities
+  # Utilities
   shared_preferences: ^2.2.2
   permission_handler: ^12.0.1
-  intl: ^0.19.0
- 
+  intl: ^0.20.2
+
   # OCR & Image
   image_picker: ^1.0.4
   google_mlkit_text_recognition: ^0.15.0
@@ -113,3 +113,9 @@ flutter:
   #
   # For details regarding fonts from package dependencies,
   # see https://flutter.dev/to/font-from-package
+
+  # This disables unsupported platforms (Linux, macOS, Windows) for file_picker
+ # plugin:
+  #  platforms:
+   #   android:
+    #    default_package: file_picker

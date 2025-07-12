@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 
-
 class CustomDrawer extends StatelessWidget {
   const CustomDrawer({super.key});
 
@@ -84,7 +83,8 @@ class CustomDrawer extends StatelessWidget {
                   context: context,
                   applicationName: 'AutoMark',
                   applicationVersion: 'v1.0.0',
-                  applicationIcon: Image.asset('assets/icons/bluetick.png', height: 40),
+                  applicationIcon:
+                      Image.asset('assets/icons/bluetick.png', height: 40),
                   children: const [
                     Text("AutoMark automatically grades scanned exam scripts."),
                     SizedBox(height: 10),
@@ -96,12 +96,41 @@ class CustomDrawer extends StatelessWidget {
 
             const Spacer(),
 
-            // ✅ Optional Logout (can be reused)
+            // ✅ Updated Logout with confirmation and navigation clearing
             ListTile(
               leading: const Icon(Icons.logout, color: Colors.red),
               title: const Text("Logout", style: TextStyle(color: Colors.red)),
-              onTap: () {
-                Navigator.pushNamed(context, '/login'); // or show confirmation
+              onTap: () async {
+                final shouldLogout = await showDialog<bool>(
+                  context: context,
+                  builder: (context) => AlertDialog(
+                    title: const Text('Logout'),
+                    content:
+                        const Text('Are you sure you want to logout?'),
+                    actions: [
+                      TextButton(
+                        onPressed: () => Navigator.pop(context, false),
+                        child: const Text('Cancel'),
+                      ),
+                      TextButton(
+                        onPressed: () => Navigator.pop(context, true),
+                        child: const Text('Logout'),
+                      ),
+                    ],
+                  ),
+                );
+
+                if (shouldLogout == true) {
+                  // TODO: Clear any user session/auth data here if needed
+
+                  Navigator.pushNamedAndRemoveUntil(
+                    context,
+                    '/login',
+                    (Route<dynamic> route) => false,
+                  );
+                } else {
+                  Navigator.pop(context); // Close drawer if canceled
+                }
               },
             ),
           ],

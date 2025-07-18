@@ -3,9 +3,11 @@ import 'package:flutter/material.dart';
 import 'package:google_mlkit_text_recognition/google_mlkit_text_recognition.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
+
 import '../providers/answer_provider.dart';
 import '../providers/result_provider.dart';
-import '../widgets/custom_drawer.dart'; // ✅ Corrected import
+import '../utils/grading_logic.dart';
+import '../widgets/custom_drawer.dart';
 
 class ScanScreen extends StatefulWidget {
   const ScanScreen({super.key});
@@ -18,6 +20,7 @@ class _ScanScreenState extends State<ScanScreen> {
   String scannedText = '';
   File? _pickedImage;
   bool _fromBatchScan = false;
+  bool _hasOpenedCamera = false; // Prevent reopening camera repeatedly
 
   @override
   void didChangeDependencies() {
@@ -30,16 +33,27 @@ class _ScanScreenState extends State<ScanScreen> {
         _fromBatchScan = true;
       });
 
-      final studentAnswers = args
-          .replaceAll('\n', ',')
-          .split(',')
-          .map((e) => e.trim().toUpperCase())
-          .where((e) => e.isNotEmpty)
-          .toList();
+      final parsedStudentAnswers = parseAnswers(args);
+      final answerEntries = context.read<AnswerProvider>().entries;
 
-      final correctAnswers = context.read<AnswerProvider>().correctAnswers;
-      context.read<ResultProvider>().calculateScore(studentAnswers, correctAnswers);
+      final score = gradeAnswers(parsedStudentAnswers, answerEntries);
+      context.read<ResultProvider>().setResult(score, answerEntries.length);
+
+      Navigator.pushNamed(context, '/result');
     }
+  }
+
+  @override
+  void initState() {
+    super.initState();
+
+    // Auto open camera only once on first build
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!_hasOpenedCamera && !_fromBatchScan) {
+        _hasOpenedCamera = true;
+        _pickImage(ImageSource.camera);
+      }
+    });
   }
 
   Future<void> _pickImage(ImageSource source) async {
@@ -57,23 +71,16 @@ class _ScanScreenState extends State<ScanScreen> {
     final inputImage = InputImage.fromFile(imageFile);
     final textRecognizer = TextRecognizer(script: TextRecognitionScript.latin);
     final recognizedText = await textRecognizer.processImage(inputImage);
+    await textRecognizer.close();
 
     final extractedText = recognizedText.text;
-    setState(() {
-      scannedText = extractedText;
-    });
+    setState(() => scannedText = extractedText);
 
-    final studentAnswers = extractedText
-        .replaceAll('\n', ',')
-        .split(',')
-        .map((e) => e.trim().toUpperCase())
-        .where((e) => e.isNotEmpty)
-        .toList();
+    final parsedStudentAnswers = parseAnswers(extractedText);
+    final answerEntries = context.read<AnswerProvider>().entries;
 
-    final correctAnswers = context.read<AnswerProvider>().correctAnswers;
-    context.read<ResultProvider>().calculateScore(studentAnswers, correctAnswers);
-
-    await textRecognizer.close();
+    final score = gradeAnswers(parsedStudentAnswers, answerEntries);
+    context.read<ResultProvider>().setResult(score, answerEntries.length);
 
     Navigator.pushNamed(context, '/result');
   }
@@ -82,7 +89,7 @@ class _ScanScreenState extends State<ScanScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(title: const Text("Scan Script")),
-      drawer: const CustomDrawer(), // ✅ Add drawer here
+      drawer: const CustomDrawer(),
       body: Padding(
         padding: const EdgeInsets.all(20),
         child: Column(

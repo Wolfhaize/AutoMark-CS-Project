@@ -1,4 +1,4 @@
-/// Parses raw answer text into a clean list of answers (line by line).
+/// Parses raw OCR answer text into a list of cleaned answers (by line).
 List<String> parseAnswers(String rawText) {
   return rawText
       .trim()
@@ -8,85 +8,50 @@ List<String> parseAnswers(String rawText) {
       .toList();
 }
 
-/// Grades answers with support for:
-/// - Objective questions (e.g. 'A', 'B', 'C').
-/// - Sentence-based answers using keyword matching.
-/// - Weighted answers (e.g. {'weight': 2, 'keywords': ['cell', 'nucleus']})
+/// Grades a student's answers against the structured answer key.
+///
+/// Supports:
+/// - Objective: Exact match (e.g., "A").
+/// - Keyword: Checks if at least 50% of keywords are found in the answer.
+/// - Weighted Keyword: Same as keyword, but adds a weight to the score.
 ///
 /// Parameters:
-/// - [studentAnswers]: List of answers extracted from the student's script.
-/// - [answerKey]: A list of correct answers. Each item can be:
-///     - String (exact match)
-///     - List<String> (keyword-based)
-///     - Map<String, dynamic> (weighted keywords)
+/// - [studentAnswers]: Parsed answers from OCR.
+/// - [answerKey]: List of answer entries (Map with 'type', 'answer', 'keywords', 'weight').
 ///
 /// Returns:
-/// - Integer score representing total correct answers.
+/// - Total score as an integer.
 int gradeAnswers(List<String> studentAnswers, List<dynamic> answerKey) {
   int score = 0;
 
-  for (int i = 0; i < answerKey.length; i++) {
-    if (i >= studentAnswers.length) continue;
-
-    String studentAnswer = studentAnswers[i]
+  for (int i = 0; i < answerKey.length && i < studentAnswers.length; i++) {
+    final rawStudentAnswer = studentAnswers[i]
         .toLowerCase()
         .replaceAll(RegExp(r'[^\w\s]'), '')
         .trim();
 
-    final key = answerKey[i];
+    final item = answerKey[i];
 
-    // Objective question (exact string match)
-    if (key is String) {
-      String correct = key
-          .toLowerCase()
-          .replaceAll(RegExp(r'[^\w\s]'), '')
-          .trim();
+    if (item is! Map<String, dynamic>) continue;
 
-      if (studentAnswer == correct) {
+    final type = item['type'];
+    final answer = (item['answer'] ?? '').toString().toLowerCase().trim();
+    final keywords = List<String>.from(item['keywords'] ?? []).map((k) => k.toLowerCase().trim()).toList();
+    final weight = item['weight'] is num ? (item['weight'] as num).toInt() : 1;
+
+    if (type == 'Objective') {
+      final cleanedAnswer = answer.replaceAll(RegExp(r'[^\w\s]'), '');
+      if (rawStudentAnswer == cleanedAnswer) {
         score += 1;
       }
-    }
+    } else if (type == 'Keyword') {
+      if (keywords.isEmpty) continue;
 
-    // Keyword-based sentence (list of keywords)
-    else if (key is List<String>) {
-      List<String> keywords = key
-          .map((k) => k
-              .toLowerCase()
-              .replaceAll(RegExp(r'[^\w\s]'), '')
-              .trim())
-          .toList();
-
-      int matchedCount = keywords
-          .where((keyword) => studentAnswer.contains(keyword))
-          .length;
-
-      if (matchedCount >= (keywords.length / 2).ceil()) {
-        score += 1;
-      }
-    }
-
-    // Weighted keyword question
-    else if (key is Map<String, dynamic>) {
-      double weight = key['weight'] is num
-          ? (key['weight'] as num).toDouble()
-          : 1.0;
-
-      List<String> keywords = (key['keywords'] as List<dynamic>)
-          .map((k) => k
-              .toString()
-              .toLowerCase()
-              .replaceAll(RegExp(r'[^\w\s]'), '')
-              .trim())
-          .toList();
-
-      int matchedCount = keywords
-          .where((keyword) => studentAnswer.contains(keyword))
-          .length;
-
-      double matchRatio = matchedCount / keywords.length;
+      final matched = keywords.where((k) => rawStudentAnswer.contains(k)).length;
+      final matchRatio = matched / keywords.length;
 
       if (matchRatio >= 0.5) {
-        score += weight.toInt();
+        score += weight;
       }
     }
   }

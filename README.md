@@ -106,6 +106,8 @@ If using the backend:
 /mobile      -> Flutter app (Android/iOS code)
 /website     -> Static website for project showcase
 /screenshots -> App screenshots for README and documentation
+/README
+/LICENSE
 ```
 
 ---

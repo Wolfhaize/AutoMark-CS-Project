@@ -55,7 +55,7 @@ class PDFGenerator {
       ),
     );
 
-    // Get external directory
+    // Save the PDF
     final directory = await getExternalStorageDirectory();
     final downloadsDir = Directory("${directory!.path}/AutoMarkReports");
 
@@ -63,7 +63,8 @@ class PDFGenerator {
       await downloadsDir.create(recursive: true);
     }
 
-    final filePath = "${downloadsDir.path}/automark_report_${now.millisecondsSinceEpoch}.pdf";
+    final fileName = "automark_report_${now.millisecondsSinceEpoch}.pdf";
+    final filePath = "${downloadsDir.path}/$fileName";
 
     // Ask for permissions if needed
     if (Platform.isAndroid) {
@@ -75,5 +76,12 @@ class PDFGenerator {
 
     final file = File(filePath);
     await file.writeAsBytes(await pdf.save());
+
+    // Save metadata to Firestore "downloads" collection
+    await FirebaseFirestore.instance.collection('downloads').add({
+      'title': fileName,
+      'filePath': filePath,
+      'timestamp': Timestamp.now(),
+    });
   }
 }

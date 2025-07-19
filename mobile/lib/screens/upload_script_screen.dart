@@ -62,14 +62,31 @@ class _UploadScriptScreenState extends State<UploadScriptScreen> {
     for (final file in imageFiles) {
       final inputImage = InputImage.fromFile(file);
       final recognizedText = await textRecognizer.processImage(inputImage);
-      fullText += recognizedText.text + '\n';
+      fullText += _formatExtractedText(recognizedText) + '\n\n';
     }
 
     await textRecognizer.close();
 
     setState(() {
-      _extractedText = fullText;
+      _extractedText = _cleanBrokenLines(fullText);
       _isLoading = false;
+    });
+  }
+
+  String _formatExtractedText(RecognizedText visionText) {
+    final buffer = StringBuffer();
+    for (TextBlock block in visionText.blocks) {
+      for (TextLine line in block.lines) {
+        buffer.writeln(line.text);
+      }
+      buffer.writeln(); // Adds space between blocks
+    }
+    return buffer.toString();
+  }
+
+  String _cleanBrokenLines(String text) {
+    return text.replaceAllMapped(RegExp(r'([a-z0-9,])\n([a-zA-Z])'), (m) {
+      return '${m[1]} ${m[2]}';
     });
   }
 

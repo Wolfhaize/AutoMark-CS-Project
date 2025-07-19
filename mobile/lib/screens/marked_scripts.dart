@@ -99,7 +99,7 @@ class _MarkedScriptsScreenState extends State<MarkedScriptsScreen> {
             }
 
             if (snapshot.hasError) {
-              return Center(child: Text("Error: ${snapshot.error}", style: TextStyle(color: Colors.red)));
+              return Center(child: Text("Error: ${snapshot.error}", style: const TextStyle(color: Colors.red)));
             }
 
             final docs = snapshot.data?.docs ?? [];

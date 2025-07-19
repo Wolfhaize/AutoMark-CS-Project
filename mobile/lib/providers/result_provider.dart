@@ -70,7 +70,7 @@ class ResultProvider with ChangeNotifier {
   }
 
   ///  Set a result directly when score is already calculated (e.g. AI/Auto)
-  void setResult(int score, int total) {
+  void setResult(int score, int total, {required String studentNumber, required String studentName}) {
     _results.insert(0, {
       'name': 'Anonymous',
       'score': score,

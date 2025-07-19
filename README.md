@@ -118,6 +118,7 @@ If using the backend:
 | [Lyazi Patrick](https://github.com/Lyazi-Patrick)   | 24/U/06571/PS       |
 | [Kato Adrian Mugerwa](https://github.com/Wolfhaize)   | 24/U/25909/PS       |
 | [Ssekidde Jovan](https://github.com/Jovans-code)   | 24/U/24746/PS       |
+| [Wanswa Drake](https://github.com/ffne4)   | 24/U/20699/PS       |
 
 
 

@@ -14,13 +14,13 @@ AutoMark allows users to scan or upload exam scripts, extract answers, compare t
 ## Mobile App Features
 
 ### **Key Screens & Functionalities**
-**HomeScreen** - Central Hub with navigation cards to access certain screens like screens for unmarked scripts
-**Upload Script Screen** - Upload student exam script currently as images(either using a phone camera or directly from the gallery), file uploads planned in future versions.
-**Unmarked Scripts Screen** - View all uploaded scripts awaiting marking. Each script is shown as a card.
-**AnswerKey Screen(Marking-guides)** - Perform actual Marking. Choose between Auto-Marking or AI-Based Marking.
-**Marked Scripts Screen** - View all marked scripts along with feedback(ai), score and also method used for marking
-**Results Screen** - Displays the student names(or numbers) with their scores in percentage form , includes an option to generate a PDF report for subject.
-**Payments Screen(Planned)** - integration with MTN Mobile Money API to unlock premium features like bulk grading, analytics or advanced reporting. 
+* **HomeScreen** - Central Hub with navigation cards to access certain screens like screens for unmarked scripts
+* **Upload Script Screen** - Upload student exam script currently as images(either using a phone camera or directly from the gallery), file uploads planned in future versions.
+* **Unmarked Scripts Screen** - View all uploaded scripts awaiting marking. Each script is shown as a card.
+* **AnswerKey Screen(Marking-guides)** - Perform actual Marking. Choose between Auto-Marking or AI-Based Marking.
+* **Marked Scripts Screen** - View all marked scripts along with feedback(ai), score and also method used for marking
+* **Results Screen** - Displays the student names(or numbers) with their scores in percentage form , includes an option to generate a PDF report for subject.
+* **Payments Screen(Planned)** - integration with MTN Mobile Money API to unlock premium features like bulk grading, analytics or advanced reporting. 
 
 ## Project Website
 

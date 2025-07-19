@@ -115,6 +115,8 @@ If using the backend:
 
 ## Group Members
 | Name                  | Registration Number |
+| [Lyazi Patrick](https://github.com/Lyazi-Patrick)   | 24/U/06571/PS       |
+
 
 
 ##  License

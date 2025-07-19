@@ -113,14 +113,8 @@ If using the backend:
 
 
 
-##  Team Members
-
-* **Lyazi Patrick**
-* **Kato Adrian**
-* **Ssekidde Jovan**
-* **Wanswa Drake**
-* **Mila Samantha**
-
+## Group Members
+| Name                  | Registration Number |
 
 
 ##  License

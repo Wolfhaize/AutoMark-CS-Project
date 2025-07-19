@@ -93,25 +93,25 @@ If using the backend:
 
 ### **Mobile App Screens**
 <h3>Home Screen</h3>
-<img src="screenshots/home.jpg" alt="Home" width="500"/>
+<img src="screenshots/home.jpg" alt="Home" width="300"/>
 
 <h3>Upload Script</h3>
-<img src="screenshots/uploadscript.jpg" alt="Upload" width="500"/>
+<img src="screenshots/uploadscript.jpg" alt="Upload" width="300"/>
 
 <h3>Unmarked Scripts</h3>
-<img src="screenshots/unmarkedScript.jpg" alt="Unmarked" width="500"/>
+<img src="screenshots/unmarkedScript.jpg" alt="Unmarked" width="300"/>
 
 <h3>Marking Guide</h3>
-<img src="screenshots/markingGuide.jpg" alt="Marking Guide" width="500"/>
+<img src="screenshots/markingGuide.jpg" alt="Marking Guide" width="300"/>
 
 <h3>Marking Screen</h3>
-<img src="screenshots/mark_screen.jpg" alt="Marking Screen" width="500"/>
+<img src="screenshots/mark_screen.jpg" alt="Marking Screen" width="300"/>
 
 <h3>Marked Scripts</h3>
-<img src="screenshots/markedScript.jpg" alt="Marked Scripts" width="500"/>
+<img src="screenshots/markedScript.jpg" alt="Marked Scripts" width="300"/>
 
 <h3>Results & PDF Generation</h3>
-<img src="screenshots/results.jpg" alt="Results" width="500"/>
+<img src="screenshots/results.jpg" alt="Results" width="300"/>
 
 - Payments(Planned) - 
 

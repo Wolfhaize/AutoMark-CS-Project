@@ -92,13 +92,27 @@ If using the backend:
 ##  Screenshots
 
 ### **Mobile App Screens**
-- Home Screen - ![Home](screenshots/home.jpg)
-- Upload Script - ![Upload](screenshots/uploadscript.jpg)
-- Unmarked Scripts - ![Unmarked](screenshots/unmarkedScript.jpg)
-- AnswerKey Screen(Marking Guide) - ![Marking Guide](screenshots/markingGuide.jpg)
-- Marking Screen - ![Marking](screenshots/mark_screen.jpg)
-- Marked Scripts - ![Marked](screenshots/markedScript.jpg)
-- Results & PDF Generation - ![Results](screenshots/results.jpg)
+<h3>Home Screen</h3>
+<img src="screenshots/home.jpg" alt="Home" width="500"/>
+
+<h3>Upload Script</h3>
+<img src="screenshots/uploadscript.jpg" alt="Upload" width="500"/>
+
+<h3>Unmarked Scripts</h3>
+<img src="screenshots/unmarkedScript.jpg" alt="Unmarked" width="500"/>
+
+<h3>Marking Guide</h3>
+<img src="screenshots/markingGuide.jpg" alt="Marking Guide" width="500"/>
+
+<h3>Marking Screen</h3>
+<img src="screenshots/mark_screen.jpg" alt="Marking Screen" width="500"/>
+
+<h3>Marked Scripts</h3>
+<img src="screenshots/markedScript.jpg" alt="Marked Scripts" width="500"/>
+
+<h3>Results & PDF Generation</h3>
+<img src="screenshots/results.jpg" alt="Results" width="500"/>
+
 - Payments(Planned) - 
 
 ##  Project Structure

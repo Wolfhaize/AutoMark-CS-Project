@@ -116,6 +116,7 @@ If using the backend:
 ## Group Members
 | Name                  | Registration Number |
 | [Lyazi Patrick](https://github.com/Lyazi-Patrick)   | 24/U/06571/PS       |
+| [Kato Adrian Mugerwa](https://github.com/Wolfhaize)   | 24/U/25909/PS       |
 
 
 

@@ -92,13 +92,13 @@ If using the backend:
 ##  Screenshots
 
 ### **Mobile App Screens**
-- Home Screen - [Home](screenshots/home.jpg)
-- Upload Script - [Upload](screenshots/uploadscript.jpg)
-- Unmarked Scripts - [Unmarked](screenshots/unmarkedScript.jpg)
-- AnswerKey Screen(Marking Guide) - [Marking Guide](screenshots/markingGuide.jpg)
-- Marking Screen - [Marking](screenshots/mark_screen.jpg)
-- Marked Scripts - [Marked](screenshots/markedScript.jpg)
-- Results & PDF Generation - [Results](screenshots/results.jpg)
+- Home Screen - ![Home](screenshots/home.jpg)
+- Upload Script - ![Upload](screenshots/uploadscript.jpg)
+- Unmarked Scripts - ![Unmarked](screenshots/unmarkedScript.jpg)
+- AnswerKey Screen(Marking Guide) - ![Marking Guide](screenshots/markingGuide.jpg)
+- Marking Screen - ![Marking](screenshots/mark_screen.jpg)
+- Marked Scripts - ![Marked](screenshots/markedScript.jpg)
+- Results & PDF Generation - ![Results](screenshots/results.jpg)
 - Payments(Planned) - 
 
 ##  Project Structure

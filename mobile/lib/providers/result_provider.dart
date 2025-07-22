@@ -1,6 +1,9 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 
+import '../models/answer_entry.dart'; //  Model for structured answers
+import '../utils/grading_logic.dart'; //  Custom grading logic
+
 class ResultProvider with ChangeNotifier {
   List<Map<String, dynamic>> _results = [];
   bool _isLoading = false;
@@ -21,6 +24,7 @@ class ResultProvider with ChangeNotifier {
 
   int get totalSubmissions => _results.length;
 
+  ///  Fetches results from Firestore
   Future<void> fetchResults() async {
     _isLoading = true;
     notifyListeners();
@@ -50,19 +54,25 @@ class ResultProvider with ChangeNotifier {
     notifyListeners();
   }
 
-  // New method to calculate score and add result
-  void calculateScore(List<String> studentAnswers, List<String> correctAnswers) {
-    int score = 0;
-    int total = correctAnswers.length;
-
-    for (int i = 0; i < total; i++) {
-      if (i < studentAnswers.length && studentAnswers[i] == correctAnswers[i]) {
-        score++;
-      }
-    }
+  ///  Score using student & correct answers (Objective + Essay)
+  void calculateScore(List<String> studentAnswers, List<AnswerEntry> correctAnswers) {
+    final score = gradeAnswers(studentAnswers, correctAnswers);
 
     _results.insert(0, {
-      'name': 'Anonymous', // update this if you have a student name
+      'name': 'Anonymous', // You can override this when known
+      'score': score,
+      'total': correctAnswers.length,
+      'timestamp': Timestamp.now(),
+      'method': 'scan',
+    });
+
+    notifyListeners();
+  }
+
+  ///  Set a result directly when score is already calculated (e.g. AI/Auto)
+  void setResult(int score, int total, {required String studentNumber, required String studentName}) {
+    _results.insert(0, {
+      'name': 'Anonymous',
       'score': score,
       'total': total,
       'timestamp': Timestamp.now(),
@@ -72,6 +82,7 @@ class ResultProvider with ChangeNotifier {
     notifyListeners();
   }
 
+  ///  Get result by student name
   Map<String, dynamic> getStudentResultByName(String name) {
     return _results.firstWhere(
       (r) => r['name'] == name,
@@ -79,6 +90,7 @@ class ResultProvider with ChangeNotifier {
     );
   }
 
+  ///  Clear all stored results (used during reset)
   void clear() {
     _results.clear();
     notifyListeners();

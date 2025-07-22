@@ -3,7 +3,6 @@ import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:google_mlkit_text_recognition/google_mlkit_text_recognition.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:path/path.dart' as path;
 
 import '../widgets/bottom_navbar.dart';
 import '../widgets/custom_drawer.dart';
@@ -42,8 +41,7 @@ class _UploadScriptScreenState extends State<UploadScriptScreen> {
 
   Future<void> _pickImagesFromCamera() async {
     try {
-      final pickedFile =
-          await _picker.pickImage(source: ImageSource.camera, imageQuality: 80);
+      final pickedFile = await _picker.pickImage(source: ImageSource.camera, imageQuality: 80);
       if (pickedFile != null) {
         setState(() {
           _imageFiles.add(File(pickedFile.path));
@@ -64,32 +62,74 @@ class _UploadScriptScreenState extends State<UploadScriptScreen> {
     for (final file in imageFiles) {
       final inputImage = InputImage.fromFile(file);
       final recognizedText = await textRecognizer.processImage(inputImage);
-      fullText += recognizedText.text + '\n';
+      fullText += _formatExtractedText(recognizedText) + '\n\n';
     }
 
     await textRecognizer.close();
 
-    await _saveToFirestore(fullText);
+    setState(() {
+      _extractedText = _cleanBrokenLines(fullText);
+      _isLoading = false;
+    });
   }
 
-  Future<void> _saveToFirestore(String text) async {
+  String _formatExtractedText(RecognizedText visionText) {
+    final buffer = StringBuffer();
+    for (TextBlock block in visionText.blocks) {
+      for (TextLine line in block.lines) {
+        buffer.writeln(line.text);
+      }
+      buffer.writeln(); // Adds space between blocks
+    }
+    return buffer.toString();
+  }
+
+  String _cleanBrokenLines(String text) {
+    return text.replaceAllMapped(RegExp(r'([a-z0-9,])\n([a-zA-Z])'), (m) {
+      return '${m[1]} ${m[2]}';
+    });
+  }
+
+  Future<void> _saveScript({bool goToMarking = false}) async {
     final name = _nameController.text.trim().isEmpty
         ? 'Student ${DateTime.now().millisecondsSinceEpoch}'
         : _nameController.text.trim();
 
-    await FirebaseFirestore.instance.collection('scripts').add({
-      'name': name,
-      'ocrText': text,
-      'status': 'unmarked',
-      'timestamp': Timestamp.now(),
-    });
+    try {
+      final docRef = await FirebaseFirestore.instance.collection('scripts').add({
+        'name': name,
+        'ocrText': _extractedText,
+        'status': 'unmarked',
+        'timestamp': Timestamp.now(),
+      });
 
+      _showSnackBar("✅ Script saved successfully!");
+
+      if (goToMarking) {
+        Navigator.pushNamed(
+          context,
+          '/mark_script',
+          arguments: {
+            'id': docRef.id,
+            'name': name,
+            'ocrText': _extractedText,
+            'timestamp': Timestamp.now(),
+          },
+        );
+      } else {
+        _clearForm();
+      }
+    } catch (e) {
+      _showSnackBar("❌ Failed to save: $e", isError: true);
+    }
+  }
+
+  void _clearForm() {
     setState(() {
-      _extractedText = text;
-      _isLoading = false;
+      _nameController.clear();
+      _imageFiles.clear();
+      _extractedText = '';
     });
-
-    _showSnackBar("✅ Script saved as UNMARKED successfully!");
   }
 
   void _showSnackBar(String message, {bool isError = false}) {
@@ -100,13 +140,6 @@ class _UploadScriptScreenState extends State<UploadScriptScreen> {
         duration: const Duration(seconds: 3),
       ),
     );
-  }
-
-  void _clearImages() {
-    setState(() {
-      _imageFiles.clear();
-      _extractedText = '';
-    });
   }
 
   @override
@@ -124,11 +157,11 @@ class _UploadScriptScreenState extends State<UploadScriptScreen> {
                 children: [
                   Image.asset('assets/icons/bluetick.png', height: 28),
                   const SizedBox(width: 8),
-                  const Text('AutoMark',
-                      style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+                  const Text('AutoMark', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
                 ],
               ),
               const SizedBox(height: 20),
+
               TextField(
                 controller: _nameController,
                 decoration: const InputDecoration(
@@ -138,7 +171,6 @@ class _UploadScriptScreenState extends State<UploadScriptScreen> {
               ),
               const SizedBox(height: 20),
 
-              // Display images
               if (_imageFiles.isNotEmpty)
                 SizedBox(
                   height: 100,
@@ -174,9 +206,10 @@ class _UploadScriptScreenState extends State<UploadScriptScreen> {
 
               const SizedBox(height: 30),
               const Divider(),
-              const Text('Extracted Text:',
-                  style: TextStyle(fontWeight: FontWeight.bold)),
+
+              const Text('Extracted Text:', style: TextStyle(fontWeight: FontWeight.bold)),
               const SizedBox(height: 10),
+
               if (_isLoading)
                 const CircularProgressIndicator()
               else
@@ -190,6 +223,36 @@ class _UploadScriptScreenState extends State<UploadScriptScreen> {
                   child: _extractedText.isEmpty
                       ? const Text('No text extracted yet.')
                       : Text(_extractedText),
+                ),
+
+              if (_extractedText.isNotEmpty)
+                Padding(
+                  padding: const EdgeInsets.only(top: 16),
+                  child: Column(
+                    children: [
+                      Row(
+                        children: [
+                          Expanded(
+                            child: ElevatedButton.icon(
+                              icon: const Icon(Icons.save_alt),
+                              label: const Text("Save & New"),
+                              onPressed: () => _saveScript(goToMarking: false),
+                              style: ElevatedButton.styleFrom(backgroundColor: Colors.teal),
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: ElevatedButton.icon(
+                              icon: const Icon(Icons.bolt),
+                              label: const Text("Save & Mark"),
+                              onPressed: () => _saveScript(goToMarking: true),
+                              style: ElevatedButton.styleFrom(backgroundColor: Colors.orange),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
                 ),
             ],
           ),

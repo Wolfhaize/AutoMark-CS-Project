@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:provider/provider.dart';
+
 import '../widgets/bottom_navbar.dart';
+import '../widgets/custom_drawer.dart';
 import '../utils/pdf_generator.dart';
-import '../widgets/custom_drawer.dart'; // ✅ Drawer import
+import '../providers/dashboard_provider.dart';
 
 class ResultScreen extends StatelessWidget {
   const ResultScreen({super.key});
@@ -45,21 +48,109 @@ class ResultScreen extends StatelessWidget {
     }
   }
 
+  Future<void> _deleteAllResults(BuildContext context) async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: const Text("Delete All Results"),
+        content: const Text("Are you sure you want to delete all results?"),
+        actions: [
+          TextButton(
+            child: const Text("Cancel"),
+            onPressed: () => Navigator.pop(context, false),
+          ),
+          TextButton(
+            child: const Text("Delete", style: TextStyle(color: Colors.red)),
+            onPressed: () => Navigator.pop(context, true),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm != true) return;
+
+    try {
+      final snapshot = await FirebaseFirestore.instance.collection('results').get();
+      final batch = FirebaseFirestore.instance.batch();
+
+      for (var doc in snapshot.docs) {
+        batch.delete(doc.reference);
+      }
+
+      await batch.commit();
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('✅ All results deleted.')),
+      );
+
+      // Refresh dashboard stats
+      await Provider.of<DashboardProvider>(context, listen: false).fetchStats();
+
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('❌ Failed to delete results: $e')),
+      );
+    }
+  }
+
+  Future<void> _deleteSingleResult(BuildContext context, String docId) async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: const Text("Delete Result"),
+        content: const Text("Are you sure you want to delete this result?"),
+        actions: [
+          TextButton(
+            child: const Text("Cancel"),
+            onPressed: () => Navigator.pop(context, false),
+          ),
+          TextButton(
+            child: const Text("Delete", style: TextStyle(color: Colors.red)),
+            onPressed: () => Navigator.pop(context, true),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm != true) return;
+
+    try {
+      await FirebaseFirestore.instance.collection('results').doc(docId).delete();
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('✅ Result deleted.')),
+      );
+
+      // Refresh dashboard stats
+      await Provider.of<DashboardProvider>(context, listen: false).fetchStats();
+
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('❌ Failed to delete result: $e')),
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text("GRADE & STATS"),
+        title: const Text("Results & Insights"),
         centerTitle: true,
         actions: [
           IconButton(
             icon: const Icon(Icons.picture_as_pdf),
-            tooltip: 'Download Report',
+            tooltip: 'Export Summary',
             onPressed: () => _generateReport(context),
+          ),
+          IconButton(
+            icon: const Icon(Icons.delete_forever),
+            tooltip: 'Delete All Results',
+            onPressed: () => _deleteAllResults(context),
           ),
         ],
       ),
-      drawer: const CustomDrawer(), // ✅ Add drawer here
+      drawer: const CustomDrawer(),
       body: Padding(
         padding: const EdgeInsets.all(20.0),
         child: StreamBuilder<QuerySnapshot>(
@@ -119,9 +210,12 @@ class ResultScreen extends StatelessWidget {
                     itemCount: docs.length,
                     separatorBuilder: (_, __) => const SizedBox(height: 10),
                     itemBuilder: (context, index) {
-                      final data = docs[index].data() as Map<String, dynamic>;
+                      final doc = docs[index];
+                      final data = doc.data() as Map<String, dynamic>;
                       final name = data['name'] ?? 'Unnamed';
                       final score = data['score'] ?? 0;
+                      final method = data['method'] ?? 'manual';
+                      final feedback = data['feedback'] ?? '';
 
                       return Container(
                         padding: const EdgeInsets.all(12),
@@ -131,22 +225,57 @@ class ResultScreen extends StatelessWidget {
                           color: Colors.grey.shade100,
                         ),
                         child: Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Flexible(
-                              child: Text(
-                                name,
-                                style: const TextStyle(fontSize: 16),
-                                overflow: TextOverflow.ellipsis,
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    name,
+                                    style: const TextStyle(
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.w500,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 4),
+                                  Text(
+                                    "Method: ${method.toUpperCase()}",
+                                    style: const TextStyle(
+                                      fontSize: 12,
+                                      color: Colors.grey,
+                                    ),
+                                  ),
+                                  if (feedback.isNotEmpty) ...[
+                                    const SizedBox(height: 4),
+                                    Text(
+                                      "Feedback: $feedback",
+                                      style: const TextStyle(
+                                        fontSize: 12,
+                                        color: Colors.black87,
+                                      ),
+                                    ),
+                                  ],
+                                ],
                               ),
                             ),
-                            Text(
-                              "$score%",
-                              style: const TextStyle(
-                                fontSize: 16,
-                                fontWeight: FontWeight.bold,
-                                color: Colors.green,
-                              ),
+                            const SizedBox(width: 12),
+                            Column(
+                              children: [
+                                Text(
+                                  "$score%",
+                                  style: const TextStyle(
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.bold,
+                                    color: Colors.green,
+                                  ),
+                                ),
+                                IconButton(
+                                  icon: const Icon(Icons.delete, color: Colors.red),
+                                  tooltip: "Delete Result",
+                                  onPressed: () => _deleteSingleResult(context, doc.id),
+                                ),
+                              ],
                             ),
                           ],
                         ),
@@ -159,7 +288,7 @@ class ResultScreen extends StatelessWidget {
           },
         ),
       ),
-      bottomNavigationBar: const AutoMarkBottomNav(currentIndex: 3),
+      bottomNavigationBar: AutoMarkBottomNav(currentIndex: 2),
     );
   }
 }

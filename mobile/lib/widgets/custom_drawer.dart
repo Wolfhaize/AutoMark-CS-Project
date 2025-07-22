@@ -10,7 +10,6 @@ class CustomDrawer extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            // ✅ Drawer Header (App logo or user info)
             DrawerHeader(
               decoration: BoxDecoration(color: Colors.blue.shade100),
               child: Column(
@@ -35,13 +34,13 @@ class CustomDrawer extends StatelessWidget {
               ),
             ),
 
-            // ✅ Navigation Options
+            // Navigation Links (all fixed to push normally)
             ListTile(
               leading: const Icon(Icons.person),
               title: const Text("Profile"),
               onTap: () {
-                Navigator.pop(context);
-                Navigator.pushNamed(context, '/profile'); // Optional
+                Navigator.pop(context); // Close drawer
+                Navigator.pushNamed(context, '/profile');
               },
             ),
             ListTile(
@@ -49,7 +48,7 @@ class CustomDrawer extends StatelessWidget {
               title: const Text("History"),
               onTap: () {
                 Navigator.pop(context);
-                Navigator.pushNamed(context, '/history'); // Optional
+                Navigator.pushNamed(context, '/history');
               },
             ),
             ListTile(
@@ -57,23 +56,32 @@ class CustomDrawer extends StatelessWidget {
               title: const Text("Downloads"),
               onTap: () {
                 Navigator.pop(context);
-                Navigator.pushNamed(context, '/downloads'); // Optional
+                Navigator.pushNamed(context, '/downloads');
               },
             ),
             ListTile(
               leading: const Icon(Icons.settings),
               title: const Text('Settings'),
-              onTap: () => Navigator.pushReplacementNamed(context, '/settings'),
+              onTap: () {
+                Navigator.pop(context);
+                Navigator.pushNamed(context, '/settings');
+              },
             ),
             ListTile(
-              leading: Icon(Icons.mark_chat_unread),
-              title: Text('Unmarked Scripts'),
-              onTap: () => Navigator.pushReplacementNamed(context, '/unmarked'),
+              leading: const Icon(Icons.mark_chat_unread),
+              title: const Text('Unmarked Scripts'),
+              onTap: () {
+                Navigator.pop(context);
+                Navigator.pushNamed(context, '/unmarked');
+              },
             ),
             ListTile(
               leading: const Icon(Icons.check_circle_outline),
               title: const Text('Marked Scripts'),
-              onTap: () => Navigator.pushNamed(context, '/marked_scripts'),
+              onTap: () {
+                Navigator.pop(context);
+                Navigator.pushNamed(context, '/marked_scripts');
+              },
             ),
             ListTile(
               leading: const Icon(Icons.info),
@@ -96,7 +104,7 @@ class CustomDrawer extends StatelessWidget {
 
             const Spacer(),
 
-            // ✅ Updated Logout with confirmation and navigation clearing
+            //  Logout Confirmation
             ListTile(
               leading: const Icon(Icons.logout, color: Colors.red),
               title: const Text("Logout", style: TextStyle(color: Colors.red)),
@@ -105,8 +113,7 @@ class CustomDrawer extends StatelessWidget {
                   context: context,
                   builder: (context) => AlertDialog(
                     title: const Text('Logout'),
-                    content:
-                        const Text('Are you sure you want to logout?'),
+                    content: const Text('Are you sure you want to logout?'),
                     actions: [
                       TextButton(
                         onPressed: () => Navigator.pop(context, false),
@@ -121,7 +128,7 @@ class CustomDrawer extends StatelessWidget {
                 );
 
                 if (shouldLogout == true) {
-                  // TODO: Clear any user session/auth data here if needed
+                  // TODO: Clear any session data if needed
 
                   Navigator.pushNamedAndRemoveUntil(
                     context,
@@ -129,7 +136,7 @@ class CustomDrawer extends StatelessWidget {
                     (Route<dynamic> route) => false,
                   );
                 } else {
-                  Navigator.pop(context); // Close drawer if canceled
+                  Navigator.pop(context); // Close drawer
                 }
               },
             ),

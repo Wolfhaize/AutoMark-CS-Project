@@ -52,7 +52,7 @@ class _LoginScreenState extends State<LoginScreen> {
             key: _formKey,
             child: Column(
               children: [
-                // 🔵 App Logo
+                // App Logo
                 Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
@@ -76,7 +76,7 @@ class _LoginScreenState extends State<LoginScreen> {
 
                 const SizedBox(height: 20),
 
-                // 📧 Email Field
+                // Email Field
                 TextFormField(
                   controller: _emailController,
                   decoration: const InputDecoration(
@@ -89,7 +89,7 @@ class _LoginScreenState extends State<LoginScreen> {
                 ),
                 const SizedBox(height: 15),
 
-                // 🔒 Password Field
+                //  Password Field
                 TextFormField(
                   controller: _passwordController,
                   obscureText: _obscureText,
@@ -123,7 +123,7 @@ class _LoginScreenState extends State<LoginScreen> {
 
                 const SizedBox(height: 20),
 
-                // 🔘 Login Button
+                //  Login Button
                 SizedBox(
                   width: double.infinity,
                   child: ElevatedButton(
@@ -136,7 +136,7 @@ class _LoginScreenState extends State<LoginScreen> {
 
                 const SizedBox(height: 16),
 
-                // 🔁 Redirect to Signup
+                //  Redirect to Signup
                 TextButton(
                   onPressed: () {
                     Navigator.pushNamed(context, '/signup');

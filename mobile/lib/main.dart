@@ -1,12 +1,16 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:mobile/screens/unmarked_scripts.dart';
 import 'package:provider/provider.dart';
 import 'widgets/auth_guard.dart';
-
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'firebase_options.dart';
 import 'providers/answer_provider.dart';
 import 'providers/result_provider.dart';
+import 'providers/marking_guide_provider.dart';
+import 'providers/dashboard_provider.dart';
+
 
 import 'screens/home_screen.dart'; // Ensure this file exists and exports a HomeScreen class
 import 'screens/upload_script_screen.dart';
@@ -14,12 +18,16 @@ import 'screens/answer_key_screen.dart';
 import 'screens/result_screen.dart';
 import 'screens/signup_screen.dart';
 import 'screens/login_screen.dart';
-import 'screens/scan_screen.dart';
+//import 'screens/scan_screen.dart';
 import 'screens/settings_screen.dart';
+import 'screens/profile_screen.dart';
+import 'screens/marked_scripts.dart';
+import 'screens/downloads_screen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-
+  await dotenv.load();
+  
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
   );
@@ -36,6 +44,9 @@ class AutoMarkApp extends StatelessWidget {
       providers: [
         ChangeNotifierProvider(create: (_) => AnswerProvider()),
         ChangeNotifierProvider(create: (_) => ResultProvider()),
+        ChangeNotifierProvider(create: (_) => 
+        MarkingGuideProvider()),
+        ChangeNotifierProvider(create: (_) => DashboardProvider()),
       ],
       child: MaterialApp(
         title: 'AutoMark',
@@ -52,8 +63,12 @@ class AutoMarkApp extends StatelessWidget {
           '/upload': (context) => const AuthGuard(child: UploadScriptScreen()),
           '/answer_key': (context) => const AuthGuard(child:AnswerKeyScreen()),
           '/result': (context) => const AuthGuard(child:ResultScreen()),
-          '/scan': (context) => const AuthGuard(child: ScanScreen()),
+          //'/scan': (context) => const AuthGuard(child: ScanScreen()),
           '/settings': (context) => const AuthGuard(child: SettingsScreen()),
+          '/profile': (context) => const AuthGuard(child: ProfileScreen()),
+          '/unmarked':(context) => const AuthGuard(child: UnmarkedScriptsScreen()),
+          '/marked_scripts': (context) => AuthGuard(child: MarkedScriptsScreen()),
+          '/downloads': (context) => const AuthGuard(child: DownloadsScreen()),
         },
       ),
     );

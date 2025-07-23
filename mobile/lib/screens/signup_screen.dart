@@ -14,6 +14,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   final _confirmPasswordController = TextEditingController();
+
   bool _isLoading = false;
   bool _obscurePassword = true;
   bool _obscureConfirmPassword = true;
@@ -33,7 +34,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
         const SnackBar(content: Text("Account created successfully!")),
       );
 
-      // TODO: Navigate to login or dashboard
+      Navigator.pushReplacementNamed(context, '/login');
     } on FirebaseAuthException catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text("Sign up failed: ${e.message}")),
@@ -54,11 +55,11 @@ class _SignUpScreenState extends State<SignUpScreen> {
             key: _formKey,
             child: Column(
               children: [
-                // Logo
+                // 🔵 App Logo
                 Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    Image.asset('assets/icons/Bluetick.jpg', height: 40),
+                    Image.asset('assets/icons/bluetick.png', height: 40),
                     const SizedBox(width: 10),
                     const Text(
                       'AUTOMARK',
@@ -78,61 +79,40 @@ class _SignUpScreenState extends State<SignUpScreen> {
                 Image.asset('assets/images/upload.jpg', height: 100),
                 const SizedBox(height: 30),
 
-                // Name Field
+                // 🔤 Name
                 TextFormField(
                   controller: _nameController,
-                  decoration: InputDecoration(
+                  decoration: const InputDecoration(
                     labelText: 'Name',
-                    border: const OutlineInputBorder(),
-                    prefixIcon: Padding(
-                      padding: const EdgeInsets.all(10),
-                      child: Image.asset(
-                        'assets/images/person.jpg',
-                        width: 24,
-                        height: 24,
-                      ),
-                    ),
+                    border: OutlineInputBorder(),
+                    prefixIcon: Icon(Icons.person),
                   ),
                   validator: (value) =>
                       value!.isEmpty ? 'Enter your name' : null,
                 ),
                 const SizedBox(height: 15),
 
-                // Email Field
+                // 📧 Email
                 TextFormField(
                   controller: _emailController,
-                  decoration: InputDecoration(
+                  decoration: const InputDecoration(
                     labelText: 'Email',
-                    border: const OutlineInputBorder(),
-                    prefixIcon: Padding(
-                      padding: const EdgeInsets.all(10),
-                      child: Image.asset(
-                        'assets/icons/email.jpg',
-                        width: 24,
-                        height: 24,
-                      ),
-                    ),
+                    border: OutlineInputBorder(),
+                    prefixIcon: Icon(Icons.email),
                   ),
                   validator: (value) =>
                       !value!.contains('@') ? 'Enter a valid email' : null,
                 ),
                 const SizedBox(height: 15),
 
-                // Password Field
+                // 🔒 Password
                 TextFormField(
                   controller: _passwordController,
                   obscureText: _obscurePassword,
                   decoration: InputDecoration(
                     labelText: 'Password',
                     border: const OutlineInputBorder(),
-                    prefixIcon: Padding(
-                      padding: const EdgeInsets.all(10),
-                      child: Image.asset(
-                        'assets/icons/Lock.jpg',
-                        width: 24,
-                        height: 24,
-                      ),
-                    ),
+                    prefixIcon: const Icon(Icons.lock),
                     suffixIcon: IconButton(
                       icon: Icon(
                         _obscurePassword
@@ -152,21 +132,14 @@ class _SignUpScreenState extends State<SignUpScreen> {
                 ),
                 const SizedBox(height: 15),
 
-                // Confirm Password Field
+                // 🔒 Confirm Password
                 TextFormField(
                   controller: _confirmPasswordController,
                   obscureText: _obscureConfirmPassword,
                   decoration: InputDecoration(
                     labelText: 'Confirm Password',
                     border: const OutlineInputBorder(),
-                    prefixIcon: Padding(
-                      padding: const EdgeInsets.all(10),
-                      child: Image.asset(
-                        'assets/icons/Lock.jpg',
-                        width: 24,
-                        height: 24,
-                      ),
-                    ),
+                    prefixIcon: const Icon(Icons.lock_outline),
                     suffixIcon: IconButton(
                       icon: Icon(
                         _obscureConfirmPassword
@@ -175,7 +148,8 @@ class _SignUpScreenState extends State<SignUpScreen> {
                       ),
                       onPressed: () {
                         setState(() {
-                          _obscureConfirmPassword = !_obscureConfirmPassword;
+                          _obscureConfirmPassword =
+                              !_obscureConfirmPassword;
                         });
                       },
                     ),
@@ -186,7 +160,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
                 ),
                 const SizedBox(height: 30),
 
-                // Sign Up Button
+                // 🔘 Sign Up Button
                 SizedBox(
                   width: double.infinity,
                   child: ElevatedButton(
@@ -198,7 +172,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
                 ),
                 const SizedBox(height: 15),
 
-                // Login Redirect
+                // 🔁 Already have account
                 TextButton(
                   onPressed: () {
                     Navigator.pop(context);

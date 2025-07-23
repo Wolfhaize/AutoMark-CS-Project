@@ -1,33 +1,80 @@
 import 'package:flutter/material.dart';
 
-class AnswerProvider extends ChangeNotifier{
-  List<String> _answerKey = [];
+/// Model representing each answer in the key.
+class AnswerEntry {
+  final String type; // 'Objective', 'Keyword', or 'Essay'
+  final String answer;
+  final List<String> keywords;
+  final double weight; // Defaults to 1.0
+  final bool useAI;    // If true, only AI should grade this answer
 
-  //Getter
-  List<String> get answerKey => _answerKey;
+  AnswerEntry({
+    required this.type,
+    this.answer = '',
+    this.keywords = const [],
+    this.weight = 1.0,
+    this.useAI = false,
+  });
 
+<<<<<<< HEAD
   get correctAnswers => null;
 
   //set new answer key
   void setAnswerKey(List<String> newKey){
     _answerKey = newKey;
     notifyListeners();//Tells the UI to Update
+=======
+  factory AnswerEntry.fromJson(Map<String, dynamic> json) {
+    return AnswerEntry(
+      type: json['type'],
+      answer: json['answer'] ?? '',
+      keywords: List<String>.from(json['keywords'] ?? []),
+      weight: (json['weight'] is num) ? json['weight'].toDouble() : 1.0,
+      useAI: json['useAI'] ?? false,
+    );
+>>>>>>> be07d0b3d698b8f01f972effe4e728a74bd4b207
   }
 
-  //Clear all answers
-  void clearAnswerKey(){
-    _answerKey.clear();
-    notifyListeners();
+  Map<String, dynamic> toJson() {
+    return {
+      'type': type,
+      'answer': answer,
+      'keywords': keywords,
+      'weight': weight,
+      'useAI': useAI,
+    };
   }
-  // add a single answer
-  void addAnswer(String answer){
-    _answerKey.add(answer);
+}
+
+class AnswerProvider extends ChangeNotifier {
+  final List<AnswerEntry> _entries = [];
+
+  List<AnswerEntry> get entries => List.unmodifiable(_entries);
+
+  void loadFromJson(List<dynamic> jsonList) {
+    _entries.clear();
+    _entries.addAll(jsonList.map((e) => AnswerEntry.fromJson(e)));
     notifyListeners();
   }
 
-  //remove answer by index
-  void removeAnswer(int index){
-    _answerKey.remove(index);
+  void addEntry(AnswerEntry entry) {
+    _entries.add(entry);
     notifyListeners();
+  }
+
+  void removeEntry(int index) {
+    if (index >= 0 && index < _entries.length) {
+      _entries.removeAt(index);
+      notifyListeners();
+    }
+  }
+
+  void clear() {
+    _entries.clear();
+    notifyListeners();
+  }
+
+  List<Map<String, dynamic>> toJsonList() {
+    return _entries.map((e) => e.toJson()).toList();
   }
 }

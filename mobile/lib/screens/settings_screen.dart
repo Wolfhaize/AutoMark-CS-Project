@@ -1,85 +1,230 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+<<<<<<< HEAD
 import '../widgets/bottom_navbar.dart';
 // Make sure the file and class name match. For example, if the class is named AutoMarkBottomNavbar, update the usage below.
+=======
+>>>>>>> be07d0b3d698b8f01f972effe4e728a74bd4b207
 
-class SettingsScreen extends StatelessWidget {
+class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
 
-  void _signOut(BuildContext context) async {
-    await FirebaseAuth.instance.signOut();
-    Navigator.pushReplacementNamed(context, '/login');
+  @override
+  State<SettingsScreen> createState() => _SettingsScreenState();
+}
+
+class _SettingsScreenState extends State<SettingsScreen> {
+  bool _emailSent = false;
+
+  Future<void> _resetPasswordByEmail(BuildContext context) async {
+    final user = FirebaseAuth.instance.currentUser;
+    final email = user?.email;
+
+    if (user == null || email == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("No email associated with this account.")),
+      );
+      return;
+    }
+
+    try {
+      await FirebaseAuth.instance.sendPasswordResetEmail(email: email);
+      setState(() => _emailSent = true);
+
+      showDialog(
+        context: context,
+        builder: (_) => AlertDialog(
+          title: const Text("Reset Email Sent"),
+          content: Text("We sent a password reset link to:\n$email"),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(context), child: const Text("OK"))
+          ],
+        ),
+      );
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text("Error sending email: $e")),
+      );
+    }
   }
 
-  void _showAboutDialog(BuildContext context) {
-    showAboutDialog(
+  void _changePasswordInApp(BuildContext context) {
+    final currentPassController = TextEditingController();
+    final newPassController = TextEditingController();
+
+    showDialog(
       context: context,
-      applicationName: 'AutoMark',
-      applicationVersion: 'v1.0.0',
-      applicationIcon: Image.asset('assets/icons/bluetick.png', height: 40),
-      children: const [
-        Text('AutoMark helps automatically grade scanned exam scripts.'),
-        SizedBox(height: 10),
-        Text('Developed by: Group 27 - CS Project 2025'),
-      ],
+      builder: (ctx) => AlertDialog(
+        title: const Text("Change Password"),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(
+              controller: currentPassController,
+              obscureText: true,
+              decoration: const InputDecoration(labelText: 'Current Password'),
+            ),
+            TextField(
+              controller: newPassController,
+              obscureText: true,
+              decoration: const InputDecoration(labelText: 'New Password'),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text("Cancel")),
+          ElevatedButton(
+            onPressed: () async {
+              try {
+                final user = FirebaseAuth.instance.currentUser;
+                final email = user?.email;
+                final currentPass = currentPassController.text.trim();
+                final newPass = newPassController.text.trim();
+
+                if (user == null || email == null) throw "No logged in user.";
+                if (newPass.length < 6) throw "New password must be at least 6 characters.";
+
+                final cred = EmailAuthProvider.credential(email: email, password: currentPass);
+                await user.reauthenticateWithCredential(cred);
+                await user.updatePassword(newPass);
+
+                Navigator.pop(ctx);
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text("Password updated successfully")),
+                );
+              } catch (e) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(content: Text("Failed: $e")),
+                );
+              }
+            },
+            child: const Text("Update"),
+          ),
+        ],
+      ),
     );
   }
 
-  void _changePassword(BuildContext context) async {
+  Future<void> _verifyEmail(BuildContext context) async {
     final user = FirebaseAuth.instance.currentUser;
-    if (user != null) {
-      await FirebaseAuth.instance.sendPasswordResetEmail(email: user.email!);
+
+    if (user == null) return;
+    await user.reload();
+
+    if (user.emailVerified) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Password reset link sent to your email")),
+        const SnackBar(content: Text("Email already verified.")),
       );
+    } else {
+      await user.sendEmailVerification();
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("Verification email sent!")),
+      );
+    }
+
+    setState(() {}); // Refresh
+  }
+
+  Future<void> _deleteAccount(BuildContext context) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text("Delete Account"),
+        content: const Text("This will permanently delete your account. Continue?"),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text("Cancel")),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text("Delete"),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true) {
+      try {
+        await FirebaseAuth.instance.currentUser?.delete();
+        if (context.mounted) {
+          Navigator.pushNamedAndRemoveUntil(context, '/login', (route) => false);
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text("Account deleted")),
+          );
+        }
+      } catch (e) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text("Failed to delete account: $e")),
+        );
+      }
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    final userEmail = FirebaseAuth.instance.currentUser?.email ?? 'Unknown';
+    final user = FirebaseAuth.instance.currentUser;
+    final userEmail = user?.email ?? 'Unknown';
+    final isVerified = user?.emailVerified ?? false;
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text("SETTINGS"),
+        title: const Text("Account Settings"),
         centerTitle: true,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back),
+          onPressed: () => Navigator.pop(context),
+        ),
       ),
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
-          const Text(
-            'Account',
-            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-          ),
+          const Text('Account', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
           const SizedBox(height: 10),
 
           ListTile(
-            leading: Image.asset('assets/icons/email.png', height: 24),
+            leading: const Icon(Icons.email),
             title: const Text("Email"),
-            subtitle: Text(userEmail),
+            subtitle: Text(
+              "$userEmail (${isVerified ? "Verified" : "Unverified"})",
+              style: TextStyle(color: isVerified ? Colors.green : Colors.red),
+            ),
+          ),
+
+          if (!isVerified)
+            ListTile(
+              leading: const Icon(Icons.verified_user),
+              title: const Text("Verify Email"),
+              onTap: () => _verifyEmail(context),
+            ),
+
+          ListTile(
+            leading: const Icon(Icons.refresh),
+            title: const Text("Reset Password via Email"),
+            onTap: _emailSent ? null : () => _resetPasswordByEmail(context),
+            subtitle: _emailSent ? const Text("Link already sent") : null,
           ),
 
           ListTile(
-            leading: Image.asset('assets/icons/lock.png', height: 24),
-            title: const Text("Change Password"),
-            onTap: () => _changePassword(context),
+            leading: const Icon(Icons.lock_reset),
+            title: const Text("Change Password In-App"),
+            onTap: () => _changePasswordInApp(context),
           ),
 
-          ListTile(
-            leading: Image.asset('assets/icons/info.png', height: 24),
-            title: const Text("About AutoMark"),
-            onTap: () => _showAboutDialog(context),
-          ),
+          const Divider(height: 30),
+          const Text("Danger Zone", style: TextStyle(fontSize: 18, color: Colors.red)),
+          const SizedBox(height: 8),
 
           ListTile(
-            leading: Image.asset('assets/icons/logout.png', height: 24),
-            title: const Text("Logout", style: TextStyle(color: Colors.red)),
-            onTap: () => _signOut(context),
+            leading: const Icon(Icons.delete, color: Colors.red),
+            title: const Text("Delete My Account", style: TextStyle(color: Colors.red)),
+            onTap: () => _deleteAccount(context),
           ),
         ],
       ),
+<<<<<<< HEAD
       // Ensure the class name here matches the one in bottom_navbar.dart
       bottomNavigationBar: const AutoMarkBottomNav(currentIndex: 4),
+=======
+>>>>>>> be07d0b3d698b8f01f972effe4e728a74bd4b207
     );
   }
 }

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../widgets/bottom_navbar.dart';
+// Make sure the file and class name match. For example, if the class is named AutoMarkBottomNavbar, update the usage below.
 
 class SettingsScreen extends StatelessWidget {
   const SettingsScreen({super.key});
@@ -77,8 +78,31 @@ class SettingsScreen extends StatelessWidget {
           ),
         ],
       ),
-
+      // Ensure the class name here matches the one in bottom_navbar.dart
       bottomNavigationBar: const AutoMarkBottomNav(currentIndex: 4),
+    );
+  }
+}
+
+class AutoMarkBottomNav extends StatelessWidget {
+  final int currentIndex;
+  const AutoMarkBottomNav({Key? key, required this.currentIndex}) : super(key: key);
+
+  @override
+  Widget build(BuildContext context) {
+    // Replace with your actual BottomNavigationBar implementation
+    return BottomNavigationBar(
+      currentIndex: currentIndex,
+      items: const [
+        BottomNavigationBarItem(icon: Icon(Icons.home), label: 'Home'),
+        BottomNavigationBarItem(icon: Icon(Icons.search), label: 'Search'),
+        BottomNavigationBarItem(icon: Icon(Icons.camera_alt), label: 'Scan'),
+        BottomNavigationBarItem(icon: Icon(Icons.settings), label: 'Settings'),
+        BottomNavigationBarItem(icon: Icon(Icons.person), label: 'Profile'),
+      ],
+      onTap: (index) {
+        // Handle navigation logic here
+      },
     );
   }
 }

@@ -13,7 +13,7 @@ class GradeResult{
 }
 
 class ResultProvider extends ChangeNotifier {
-  List<GradeResult> _results = [];
+  final List<GradeResult> _results = [];
   
   //Getter
   List<GradeResult> get results => _results;

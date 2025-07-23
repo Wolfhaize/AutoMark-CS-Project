@@ -86,3 +86,7 @@ class _ScanScreenState extends State<ScanScreen> {
     );
   }
 }
+
+extension on ResultProvider {
+  void calculateScore(List<String> studentAnswers, correctAnswers) {}
+}

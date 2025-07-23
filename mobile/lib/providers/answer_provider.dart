@@ -6,6 +6,8 @@ class AnswerProvider extends ChangeNotifier{
   //Getter
   List<String> get answerKey => _answerKey;
 
+  get correctAnswers => null;
+
   //set new answer key
   void setAnswerKey(List<String> newKey){
     _answerKey = newKey;

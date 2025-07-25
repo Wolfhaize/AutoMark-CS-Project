@@ -43,9 +43,9 @@ class ResultProvider with ChangeNotifier {
           'percentage': (data['percentage'] ?? "0.0").toString(),
           'timestamp': data['timestamp'],
           'method': data['method'] ?? 'auto',
-          'details': data['details'] ?? [],
-  };
-}).toList();
+          'details': data['details'] ?? []
+          };
+  }).toList());
 
     } catch (e) {
       debugPrint('❌ Failed to fetch results: $e');
@@ -83,6 +83,7 @@ class ResultProvider with ChangeNotifier {
     required int total,
     required String percentage,
     required List<Map<String, dynamic>> details,
+    required String studentName,
   }) {
     _results.insert(0, {
       'name': studentName.isNotEmpty ? studentName : 'Anonymous',

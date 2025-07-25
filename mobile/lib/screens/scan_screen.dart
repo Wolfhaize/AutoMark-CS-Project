@@ -135,3 +135,26 @@ class _ScanScreenState extends State<ScanScreen> {
 extension on ResultProvider {
   void calculateScore(List<String> studentAnswers, correctAnswers) {}
 }
+
+// Dummy ResultProvider for demonstration; replace with your actual implementation
+class ResultProvider extends ChangeNotifier {
+  int _score = 0;
+  int _total = 0;
+
+  void setResult(int score, int total) {
+    _score = score;
+    _total = total;
+    notifyListeners();
+  }
+
+  int get score => _score;
+  int get total => _total;
+}
+
+class AnswerProvider extends ChangeNotifier {
+    List<String> entries = [];
+    void setEntries(List<String> newEntries) {
+      entries = newEntries;
+      notifyListeners();
+    }
+  }

@@ -139,8 +139,4 @@ class _HomeScreenState extends State<HomeScreen> {
       bottomNavigationBar: const AutoMarkBottomNav(currentIndex: 0),
     );
   }
-<<<<<<< HEAD
 }
-=======
-}
->>>>>>> be07d0b3d698b8f01f972effe4e728a74bd4b207

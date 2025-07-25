@@ -1,6 +1,3 @@
-<<<<<<< HEAD
-// TODO Implement this library.
-=======
 import 'package:flutter/material.dart';
 
 class AutoMarkBottomNav extends StatelessWidget {
@@ -55,4 +52,3 @@ class AutoMarkBottomNav extends StatelessWidget {
     );
   }
 }
->>>>>>> be07d0b3d698b8f01f972effe4e728a74bd4b207

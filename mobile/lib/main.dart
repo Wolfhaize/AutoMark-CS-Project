@@ -75,6 +75,9 @@ class AutoMarkApp extends StatelessWidget {
   }
 }
 
+class AnswerProvider extends ChangeNotifier {
+}
+
 /// This decides whether to go to login or home automatically
 class AuthWrapper extends StatelessWidget {
   const AuthWrapper({super.key});

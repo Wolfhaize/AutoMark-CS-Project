@@ -451,8 +451,4 @@ class _AnswerKeyScreenState extends State<AnswerKeyScreen> {
       bottomNavigationBar: const AutoMarkBottomNav(currentIndex: 3),
     );
   }
-<<<<<<< HEAD
 }
-=======
-}
->>>>>>> be07d0b3d698b8f01f972effe4e728a74bd4b207

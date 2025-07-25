@@ -1,10 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-<<<<<<< HEAD
 import '../widgets/bottom_navbar.dart';
-// Make sure the file and class name match. For example, if the class is named AutoMarkBottomNavbar, update the usage below.
-=======
->>>>>>> be07d0b3d698b8f01f972effe4e728a74bd4b207
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
@@ -220,11 +216,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
           ),
         ],
       ),
-<<<<<<< HEAD
-      // Ensure the class name here matches the one in bottom_navbar.dart
-      bottomNavigationBar: const AutoMarkBottomNav(currentIndex: 4),
-=======
->>>>>>> be07d0b3d698b8f01f972effe4e728a74bd4b207
+// Ensure the class name here matches the one in bottom_navbar.dart
+bottomNavigationBar: const AutoMarkBottomNav(currentIndex: 4),
     );
   }
 }

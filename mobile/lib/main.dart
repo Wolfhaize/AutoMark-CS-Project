@@ -76,6 +76,9 @@ class AutoMarkApp extends StatelessWidget {
   }
 }
 
+class AnswerProvider extends ChangeNotifier {
+}
+
 /// This decides whether to go to login or home automatically
 class AuthWrapper extends StatelessWidget {
   const AuthWrapper({super.key});
@@ -94,7 +97,7 @@ class AuthWrapper extends StatelessWidget {
 
         // If user is logged in, show home
         if (snapshot.hasData) {
-          return const HomeScreen();
+          return const HomeScreen(); // Make sure HomeScreen is defined in screens/home_screen.dart
         }
 
         // Otherwise show login

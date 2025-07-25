@@ -14,13 +14,13 @@ AutoMark allows users to scan or upload exam scripts, extract answers, compare t
 ## Mobile App Features
 
 ### **Key Screens & Functionalities**
-**HomeScreen** - Central Hub with navigation cards to access certain screens like screens for unmarked scripts
-**Upload Script Screen** - Upload student exam script currently as images(either using a phone camera or directly from the gallery), file uploads planned in future versions.
-**Unmarked Scripts Screen** - View all uploaded scripts awaiting marking. Each script is shown as a card.
-**AnswerKey Screen(Marking-guides)** - Perform actual Marking. Choose between Auto-Marking or AI-Based Marking.
-**Marked Scripts Screen** - View all marked scripts along with feedback(ai), score and also method used for marking
-**Results Screen** - Displays the student names(or numbers) with their scores in percentage form , includes an option to generate a PDF report for subject.
-**Payments Screen(Planned)** - integration with MTN Mobile Money API to unlock premium features like bulk grading, analytics or advanced reporting. 
+* **HomeScreen** - Central Hub with navigation cards to access certain screens like screens for unmarked scripts
+* **Upload Script Screen** - Upload student exam script currently as images(either using a phone camera or directly from the gallery), file uploads planned in future versions.
+* **Unmarked Scripts Screen** - View all uploaded scripts awaiting marking. Each script is shown as a card.
+* **AnswerKey Screen(Marking-guides)** - Perform actual Marking. Choose between Auto-Marking or AI-Based Marking.
+* **Marked Scripts Screen** - View all marked scripts along with feedback(ai), score and also method used for marking
+* **Results Screen** - Displays the student names(or numbers) with their scores in percentage form , includes an option to generate a PDF report for subject.
+* **Payments Screen(Planned)** - integration with MTN Mobile Money API to unlock premium features like bulk grading, analytics or advanced reporting. 
 
 ## Project Website
 
@@ -92,14 +92,31 @@ If using the backend:
 ##  Screenshots
 
 ### **Mobile App Screens**
-- Home Screen - [Home](screenshots/home.jpg)
-- Upload Script - [Upload](screenshots/uploadscript.jpg)
-- Unmarked Scripts - [Unmarked](screenshots/unmarkedScript.jpg)
-- AnswerKey Screen(Marking Guide) - [Marking Guide](screenshots/markingGuide.jpg)
-- Marking Screen - [Marking](screenshots/mark_screen.jpg)
-- Marked Scripts - [Marked](screenshots/markedScript.jpg)
-- Results & PDF Generation - [Results](screenshots/results.jpg)
+<div align="center">
+<h3>Home Screen</h3>
+<img src="screenshots/home.jpg" alt="Home" width="300"/>
+
+<h3>Upload Script</h3>
+<img src="screenshots/uploadscript.jpg" alt="Upload" width="300"/>
+
+<h3>Unmarked Scripts</h3>
+<img src="screenshots/unmarkedScript.jpg" alt="Unmarked" width="300"/>
+
+<h3>Marking Guide</h3>
+<img src="screenshots/markingGuide.jpg" alt="Marking Guide" width="300"/>
+
+<h3>Marking Screen</h3>
+<img src="screenshots/mark_screen.jpg" alt="Marking Screen" width="300"/>
+
+<h3>Marked Scripts</h3>
+<img src="screenshots/markedScript.jpg" alt="Marked Scripts" width="300"/>
+
+<h3>Results & PDF Generation</h3>
+<img src="screenshots/results.jpg" alt="Results" width="300"/>
+
 - Payments(Planned) - 
+
+<div>
 
 ##  Project Structure
 
@@ -113,14 +130,15 @@ If using the backend:
 
 
 
-##  Team Members
+## Group Members
 
-* **Lyazi Patrick**
-* **Kato Adrian**
-* **Ssekidde Jovan**
-* **Wanswa Drake**
-* **Mila Samantha**
-
+| Name                  | Registration Number |
+|------|---------------------|
+| [Lyazi Patrick](https://github.com/Lyazi-Patrick)   | 24/U/06571/PS|
+| [Kato Adrian Mugerwa](https://github.com/Wolfhaize)   | 24/U/25909/PS |
+| [Ssekidde Jovan](https://github.com/Jovans-code)   | 24/U/24746/PS |
+| [Wanswa Drake](https://github.com/ffne4)   | 24/U/20699/PS |
+| [Mila Samantha](https://github.com/Samantha7404)   | 24/U/24201/PS|
 
 
 ##  License

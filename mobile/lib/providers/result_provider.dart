@@ -4,7 +4,7 @@ import '../models/answer_entry.dart';
 import '../utils/grading_logic.dart'; // Updated grading logic with autoGradeAnswers
 
 class ResultProvider with ChangeNotifier {
-  List<Map<String, dynamic>> _results = [];
+  final List<Map<String, dynamic>> _results = [];
   bool _isLoading = false;
 
   List<Map<String, dynamic>> get results => _results;
@@ -32,7 +32,8 @@ class ResultProvider with ChangeNotifier {
           .orderBy('timestamp', descending: true)
           .get();
 
-      _results = snapshot.docs.map((doc) {
+      _results.clear();
+      _results.addAll(snapshot.docs.map((doc) {
         final data = doc.data();
         return {
           'id': doc.id,
@@ -84,7 +85,7 @@ class ResultProvider with ChangeNotifier {
     required List<Map<String, dynamic>> details,
   }) {
     _results.insert(0, {
-      'name': 'Anonymous',
+      'name': studentName.isNotEmpty ? studentName : 'Anonymous',
       'score': score,
       'total': total,
       'percentage': percentage,
@@ -96,6 +97,7 @@ class ResultProvider with ChangeNotifier {
     notifyListeners();
   }
 
+  /// Get result by student name
   /// Get result by student name
   Map<String, dynamic> getStudentResultByName(String name) {
     return _results.firstWhere(

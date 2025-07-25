@@ -12,7 +12,7 @@ import 'providers/marking_guide_provider.dart';
 import 'providers/dashboard_provider.dart';
 
 
-import 'screens/home_screen.dart';
+import 'screens/home_screen.dart'; // Ensure this file exists and exports a HomeScreen class
 import 'screens/upload_script_screen.dart';
 import 'screens/answer_key_screen.dart';
 import 'screens/result_screen.dart';
@@ -75,6 +75,9 @@ class AutoMarkApp extends StatelessWidget {
   }
 }
 
+class AnswerProvider extends ChangeNotifier {
+}
+
 /// This decides whether to go to login or home automatically
 class AuthWrapper extends StatelessWidget {
   const AuthWrapper({super.key});
@@ -93,7 +96,7 @@ class AuthWrapper extends StatelessWidget {
 
         // If user is logged in, show home
         if (snapshot.hasData) {
-          return const HomeScreen();
+          return const HomeScreen(); // Make sure HomeScreen is defined in screens/home_screen.dart
         }
 
         // Otherwise show login

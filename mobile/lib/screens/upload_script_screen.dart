@@ -1,11 +1,14 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:google_mlkit_text_recognition/google_mlkit_text_recognition.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 
+import '../services/ai_service.dart';
 import '../widgets/bottom_navbar.dart';
 import '../widgets/custom_drawer.dart';
+import '../screens/mark_script_screen.dart';
 
 class UploadScriptScreen extends StatefulWidget {
   const UploadScriptScreen({super.key});
@@ -59,18 +62,36 @@ class _UploadScriptScreenState extends State<UploadScriptScreen> {
     final textRecognizer = TextRecognizer(script: TextRecognitionScript.latin);
     String fullText = '';
 
-    for (final file in imageFiles) {
-      final inputImage = InputImage.fromFile(file);
-      final recognizedText = await textRecognizer.processImage(inputImage);
-      fullText += _formatExtractedText(recognizedText) + '\n\n';
+    try {
+      for (final file in imageFiles) {
+        final inputImage = InputImage.fromFile(file);
+        final recognizedText = await textRecognizer.processImage(inputImage);
+        fullText += _formatExtractedText(recognizedText) + '\n';
+      }
+
+      await textRecognizer.close();
+
+      // Use GPT to structure answers
+      final aiService = AIService();
+      Map<String, String> extractedAnswers = {};
+      try{
+        extractedAnswers = await aiService.extractAnswersFromText(fullText, useGroq: true);
+      } catch (aiError){
+        _showSnackBar("AI extraction failed:$aiError", isError: true);
+        extractedAnswers = {};
+      }
+      setState(() {
+       if(extractedAnswers.isNotEmpty){
+        _extractedText = extractedAnswers.entries.map((e) => "${e.key}: ${e.value}").join('\n');
+       }else{
+        _extractedText = fullText;//fall back to raw ocr if AI Fails        
+       }
+       _isLoading = false;
+      });
+    } catch (e) {
+      setState(() => _isLoading = false);
+      _showSnackBar("OCR or AI extraction failed: $e", isError: true);
     }
-
-    await textRecognizer.close();
-
-    setState(() {
-      _extractedText = _cleanBrokenLines(fullText);
-      _isLoading = false;
-    });
   }
 
   String _formatExtractedText(RecognizedText visionText) {
@@ -79,50 +100,55 @@ class _UploadScriptScreenState extends State<UploadScriptScreen> {
       for (TextLine line in block.lines) {
         buffer.writeln(line.text);
       }
-      buffer.writeln(); // Adds space between blocks
     }
     return buffer.toString();
   }
 
-  String _cleanBrokenLines(String text) {
-    return text.replaceAllMapped(RegExp(r'([a-z0-9,])\n([a-zA-Z])'), (m) {
-      return '${m[1]} ${m[2]}';
-    });
-  }
-
   Future<void> _saveScript({bool goToMarking = false}) async {
-    final name = _nameController.text.trim().isEmpty
-        ? 'Student ${DateTime.now().millisecondsSinceEpoch}'
-        : _nameController.text.trim();
-
-    try {
-      final docRef = await FirebaseFirestore.instance.collection('scripts').add({
-        'name': name,
-        'ocrText': _extractedText,
-        'status': 'unmarked',
-        'timestamp': Timestamp.now(),
-      });
-
-      _showSnackBar("✅ Script saved successfully!");
-
-      if (goToMarking) {
-        Navigator.pushNamed(
-          context,
-          '/mark_script',
-          arguments: {
-            'id': docRef.id,
-            'name': name,
-            'ocrText': _extractedText,
-            'timestamp': Timestamp.now(),
-          },
-        );
-      } else {
-        _clearForm();
-      }
-    } catch (e) {
-      _showSnackBar("❌ Failed to save: $e", isError: true);
-    }
+  final currentUser = FirebaseAuth.instance.currentUser;
+  if (currentUser == null) {
+    _showSnackBar("❌ User not logged in.", isError: true);
+    return;
   }
+
+  final name = _nameController.text.trim().isEmpty
+      ? 'Student ${DateTime.now().millisecondsSinceEpoch}'
+      : _nameController.text.trim();
+
+  try {
+    final docRef = await FirebaseFirestore.instance.collection('scripts').add({
+      'name': name,
+      'ocrText': _extractedText,
+      'status': 'unmarked',
+      'timestamp': Timestamp.now(),
+      'userId': currentUser.uid,   // <-- Added this line
+    });
+
+    _showSnackBar("✅ Script saved successfully!");
+
+    if (goToMarking) {
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => MarkScriptScreen(
+            script: {
+              'id': docRef.id,
+              'name': name,
+              'ocrText': _extractedText,
+              'timestamp': Timestamp.now(),
+            },
+            guideAnswers: [], // Can be updated if you load guide selection here
+          ),
+        ),
+      );
+    } else {
+      _clearForm();
+    }
+  } catch (e) {
+    _showSnackBar("❌ Failed to save: $e", isError: true);
+  }
+}
+
 
   void _clearForm() {
     setState(() {
@@ -172,17 +198,60 @@ class _UploadScriptScreenState extends State<UploadScriptScreen> {
               const SizedBox(height: 20),
 
               if (_imageFiles.isNotEmpty)
-                SizedBox(
-                  height: 100,
-                  child: ListView.builder(
-                    scrollDirection: Axis.horizontal,
-                    itemCount: _imageFiles.length,
-                    itemBuilder: (context, index) => Padding(
-                      padding: const EdgeInsets.only(right: 10),
-                      child: Image.file(_imageFiles[index], height: 100),
+                  SizedBox(
+                    height: 100,
+                    child: ListView.builder(
+                      scrollDirection: Axis.horizontal,
+                      itemCount: _imageFiles.length,
+                      itemBuilder: (context, index) {
+                        return Stack(
+                          children: [
+                            Padding(
+                              padding: const EdgeInsets.only(right: 10),
+                              child: ClipRRect(
+                                borderRadius: BorderRadius.circular(8),
+                                child: Image.file(_imageFiles[index], height: 100),
+                              ),
+                            ),
+                            Positioned(
+                              top: 0,
+                              right: 4,
+                              child: GestureDetector(
+                               onTap: () async {
+                                final confirm = await showDialog<bool>(
+                                  context: context,
+                                  builder: (_) => AlertDialog(
+                                    title: const Text("Remove Image?"),
+                                    content: const Text("Are you sure you want to remove this image?"),
+                                    actions: [
+                                      TextButton(onPressed: () => Navigator.pop(context, false), child: const Text("Cancel")),
+                                      TextButton(onPressed: () => Navigator.pop(context, true), child: const Text("Remove")),
+                                    ],
+                                  ),
+                                );
+
+                                if (confirm == true) {
+                                  setState(() {
+                                    _imageFiles.removeAt(index);
+                                    _extractedText = ''; // Optional: Clear extracted text on removal
+                                  });
+                                }
+                              },
+                                child: Container(
+                                  decoration: const BoxDecoration(
+                                    shape: BoxShape.circle,
+                                    color: Colors.black54,
+                                  ),
+                                  padding: const EdgeInsets.all(4),
+                                  child: const Icon(Icons.close, color: Colors.white, size: 18),
+                                ),
+                              ),
+                            ),
+                          ],
+                        );
+                      },
                     ),
-                  ),
-                )
+                  )
               else
                 const Icon(Icons.image, size: 100, color: Colors.grey),
 
@@ -207,7 +276,7 @@ class _UploadScriptScreenState extends State<UploadScriptScreen> {
               const SizedBox(height: 30),
               const Divider(),
 
-              const Text('Extracted Text:', style: TextStyle(fontWeight: FontWeight.bold)),
+              const Text('Extracted & Structured Text:', style: TextStyle(fontWeight: FontWeight.bold)),
               const SizedBox(height: 10),
 
               if (_isLoading)
@@ -228,28 +297,24 @@ class _UploadScriptScreenState extends State<UploadScriptScreen> {
               if (_extractedText.isNotEmpty)
                 Padding(
                   padding: const EdgeInsets.only(top: 16),
-                  child: Column(
+                  child: Row(
                     children: [
-                      Row(
-                        children: [
-                          Expanded(
-                            child: ElevatedButton.icon(
-                              icon: const Icon(Icons.save_alt),
-                              label: const Text("Save & New"),
-                              onPressed: () => _saveScript(goToMarking: false),
-                              style: ElevatedButton.styleFrom(backgroundColor: Colors.teal),
-                            ),
-                          ),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: ElevatedButton.icon(
-                              icon: const Icon(Icons.bolt),
-                              label: const Text("Save & Mark"),
-                              onPressed: () => _saveScript(goToMarking: true),
-                              style: ElevatedButton.styleFrom(backgroundColor: Colors.orange),
-                            ),
-                          ),
-                        ],
+                      Expanded(
+                        child: ElevatedButton.icon(
+                          icon: const Icon(Icons.save_alt),
+                          label: const Text("Save & New"),
+                          onPressed: () => _saveScript(goToMarking: false),
+                          style: ElevatedButton.styleFrom(backgroundColor: Colors.teal),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: ElevatedButton.icon(
+                          icon: const Icon(Icons.bolt),
+                          label: const Text("Save & Mark"),
+                          onPressed: () => _saveScript(goToMarking: true),
+                          style: ElevatedButton.styleFrom(backgroundColor: Colors.orange),
+                        ),
                       ),
                     ],
                   ),

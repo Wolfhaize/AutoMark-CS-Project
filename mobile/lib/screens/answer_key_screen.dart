@@ -1,9 +1,8 @@
-// ignore_for_file: use_build_context_synchronously
-
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -11,30 +10,8 @@ import '../services/ocr_service.dart';
 import '../providers/dashboard_provider.dart';
 import '../widgets/bottom_navbar.dart';
 import '../widgets/custom_drawer.dart';
-
-class AnswerEntry {
-  String question;
-  String modelAnswer;
-  int marks;
-
-  AnswerEntry({
-    required this.question,
-    required this.modelAnswer,
-    required this.marks,
-  });
-
-  Map<String, dynamic> toJson() => {
-        'question': question,
-        'modelAnswer': modelAnswer,
-        'marks': marks,
-      };
-
-  factory AnswerEntry.fromJson(Map<String, dynamic> json) => AnswerEntry(
-        question: json['question'] ?? '',
-        modelAnswer: json['modelAnswer'] ?? '',
-        marks: json['marks'] ?? 0,
-      );
-}
+import '../models/answer_entry.dart';
+import '../services/ai_service.dart';
 
 class AnswerKeyScreen extends StatefulWidget {
   const AnswerKeyScreen({super.key});
@@ -50,22 +27,74 @@ class _AnswerKeyScreenState extends State<AnswerKeyScreen> {
   final List<TextEditingController> _marksControllers = [];
 
   final TextEditingController _guideNameController = TextEditingController();
-  bool _isSaving = false;
 
-  // Track the currently selected guide ID
+  bool _isSaving = false;
+  bool _isEditing = false;
+
   String? _selectedGuideId;
+  List<Map<String, dynamic>> _savedGuides = [];
+
+  // Pagination variables
+  List<QueryDocumentSnapshot> _guideDocs = [];
+  DocumentSnapshot? _lastGuideDoc;
+  bool _isLoadingMore = false;
+  bool _hasMoreGuides = true;
+  final int _pageSize = 10;
 
   @override
   void initState() {
     super.initState();
     _loadSelectedGuideId();
+    _fetchSavedGuides(isInitial: true);
   }
 
   Future<void> _loadSelectedGuideId() async {
     final prefs = await SharedPreferences.getInstance();
-    final guideId = prefs.getString('selected_guide_id');
     setState(() {
-      _selectedGuideId = guideId;
+      _selectedGuideId = prefs.getString('selected_guide_id');
+    });
+  }
+
+  Future<void> _fetchSavedGuides({bool isInitial = false}) async {
+    final currentUser = FirebaseAuth.instance.currentUser;
+    if (currentUser == null) return;
+
+    if (_isLoadingMore || !_hasMoreGuides) return;
+
+    setState(() => _isLoadingMore = true);
+
+    Query query = FirebaseFirestore.instance
+        .collection('answer_keys')
+        .where('userId', isEqualTo: currentUser.uid)
+        .orderBy('timestamp', descending: true)
+        .limit(_pageSize);
+
+    if (!isInitial && _lastGuideDoc != null) {
+      query = query.startAfterDocument(_lastGuideDoc!);
+    }
+
+    final snapshot = await query.get();
+
+    if (snapshot.docs.isNotEmpty) {
+      _lastGuideDoc = snapshot.docs.last;
+      _guideDocs.addAll(snapshot.docs);
+    }
+
+    if (snapshot.docs.length < _pageSize) {
+      _hasMoreGuides = false;
+    }
+
+    setState(() {
+      _savedGuides = _guideDocs.map((doc) {
+        final data = doc.data() as Map<String, dynamic>;
+        return {
+          'id': doc.id,
+          'title': data['title'] ?? 'Untitled Guide',
+          'answers': data['answers'] ?? [],
+          'timestamp': data['timestamp'],
+        };
+      }).toList();
+      _isLoadingMore = false;
     });
   }
 
@@ -80,8 +109,17 @@ class _AnswerKeyScreenState extends State<AnswerKeyScreen> {
     for (var entry in _entries) {
       _questionControllers.add(TextEditingController(text: entry.question));
       _answerControllers.add(TextEditingController(text: entry.modelAnswer));
-      _marksControllers.add(TextEditingController(text: entry.marks.toString()));
+      _marksControllers.add(TextEditingController(text: entry.marks?.toString() ?? '1'));
     }
+  }
+
+  void _addNewQuestion() {
+    setState(() {
+      _entries.add(AnswerEntry(question: '', modelAnswer: '', marks: 1));
+      _questionControllers.add(TextEditingController());
+      _answerControllers.add(TextEditingController());
+      _marksControllers.add(TextEditingController(text: '1'));
+    });
   }
 
   Future<void> _scanFromSource(ImageSource source) async {
@@ -91,10 +129,7 @@ class _AnswerKeyScreenState extends State<AnswerKeyScreen> {
     try {
       final file = File(pickedFile.path);
       final text = await OCRService().extractTextFromImage(file);
-      _parseScannedAnswerKey(text);
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("✅ Marking guide scanned. Edit before saving.")),
-      );
+      await _parseScannedAnswerKey(text);
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text("OCR error: $e")),
@@ -102,67 +137,44 @@ class _AnswerKeyScreenState extends State<AnswerKeyScreen> {
     }
   }
 
-  void _parseScannedAnswerKey(String rawText) {
-    final lines = rawText.split('\n');
-    String? currentQuestion;
-    String currentAnswer = '';
-    int currentMarks = 0;
+  Future<void> _parseScannedAnswerKey(String rawText) async {
+    final aiService = AIService();
 
-    _entries.clear();
+    try {
+      final extractedEntries = await aiService.extractMarkingGuideFromText(rawText);
+      _entries.clear();
+      _entries.addAll(
+        extractedEntries.map((e) => AnswerEntry.fromJson(e as Map<String, dynamic>))
+      );
 
-    for (String line in lines) {
-      final trimmed = line.trim();
-      if (trimmed.isEmpty) continue;
+      _initControllersFromEntries();
 
-      final questionMatch = RegExp(r'^(?:Question|Q)?\s*(\d+)[.:)]?', caseSensitive: false)
-          .firstMatch(trimmed);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("✅ Marking guide extracted successfully.")),
+      );
 
-      final marksMatch = RegExp(r'(\d+)\s+marks?', caseSensitive: false).firstMatch(trimmed);
+      setState(() {
+        _isEditing = true;
+      });
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text("AI extraction failed. Switching to manual mode.")),
+      );
 
-      if (questionMatch != null) {
-        if (currentQuestion != null && currentAnswer.trim().isNotEmpty) {
-          _entries.add(AnswerEntry(
-            question: currentQuestion,
-            modelAnswer: currentAnswer.trim(),
-            marks: currentMarks > 0 ? currentMarks : 1,
-          ));
-        }
-
-        final qNum = questionMatch.group(1);
-        currentQuestion = "Question $qNum";
-
-        currentMarks = marksMatch != null ? int.parse(marksMatch.group(1)!) : 0;
-        currentAnswer = '';
-      } else {
-        currentAnswer += '$line\n';
-      }
+      _entries.clear();
+      _addNewQuestion();
+      setState(() {
+        _isEditing = true;
+      });
     }
-
-    if (currentQuestion != null && currentAnswer.trim().isNotEmpty) {
-      _entries.add(AnswerEntry(
-        question: currentQuestion,
-        modelAnswer: currentAnswer.trim(),
-        marks: currentMarks > 0 ? currentMarks : 1,
-      ));
-    }
-
-    _initControllersFromEntries();
-    setState(() {});
   }
 
   Future<void> _saveToFirebase() async {
     final guideName = _guideNameController.text.trim();
 
-    if (guideName.isEmpty) {
+    if (guideName.isEmpty || _entries.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("❗ Please enter a guide title before saving.")),
-      );
-      return;
-    }
-
-    if (_entries.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("❗ No entries found. Please scan or add questions.")),
+        const SnackBar(content: Text("❗ Please enter a guide title and at least one entry.")),
       );
       return;
     }
@@ -180,10 +192,11 @@ class _AnswerKeyScreenState extends State<AnswerKeyScreen> {
     try {
       final jsonList = _entries.map((e) => e.toJson()).toList();
 
-      await FirebaseFirestore.instance.collection('answer_keys').doc(guideName).set({
+      await FirebaseFirestore.instance.collection('answer_keys').add({
         'title': guideName,
         'answers': jsonList,
         'timestamp': Timestamp.now(),
+        'userId': FirebaseAuth.instance.currentUser!.uid,
       });
 
       await Provider.of<DashboardProvider>(context, listen: false).fetchStats();
@@ -197,7 +210,13 @@ class _AnswerKeyScreenState extends State<AnswerKeyScreen> {
         _guideNameController.clear();
         _clearControllers();
         _isSaving = false;
+        _isEditing = false;
+        _guideDocs.clear();
+        _lastGuideDoc = null;
+        _hasMoreGuides = true;
       });
+
+      _fetchSavedGuides(isInitial: true);
     } catch (e) {
       setState(() => _isSaving = false);
       ScaffoldMessenger.of(context).showSnackBar(
@@ -206,86 +225,76 @@ class _AnswerKeyScreenState extends State<AnswerKeyScreen> {
     }
   }
 
-  Future<void> _setGuideForMarking(String guideId, String guideTitle) async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setString('selected_guide_id', guideId);
+  void _editGuide(Map<String, dynamic> guide) {
+    _entries.clear();
+
+    final answers = guide['answers'] as List<dynamic>;
+    for (var ans in answers) {
+      _entries.add(AnswerEntry.fromJson(Map<String, dynamic>.from(ans)));
+    }
+
+    _guideNameController.text = guide['title'];
+    _initControllersFromEntries();
+
+    setState(() {
+      _isEditing = true;
+    });
+  }
+
+  Future<void> _deleteGuide(String id) async {
+  try {
+    final docRef = FirebaseFirestore.instance.collection('answer_keys').doc(id);
+    final docSnapshot = await docRef.get();
+
+    if (!docSnapshot.exists) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("Guide not found.")),
+      );
+      return;
+    }
+
+    final data = docSnapshot.data()!;
+    data['deletedAt'] = Timestamp.now();
+    data['type'] = 'markingGuide'; //  Important for History screen filtering
+
+    // Store in history
+    await FirebaseFirestore.instance.collection('history').add(data);
+
+    // Delete from original collection
+    await docRef.delete();
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text("🗑️ Guide moved to history.")),
+    );
 
     await Provider.of<DashboardProvider>(context, listen: false).fetchStats();
 
+    setState(() {
+      _guideDocs.clear();
+      _lastGuideDoc = null;
+      _hasMoreGuides = true;
+    });
+
+    _fetchSavedGuides(isInitial: true);
+  } catch (e) {
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text("✅ '$guideTitle' set as current marking guide.")),
+      SnackBar(content: Text("Delete failed: $e")),
+    );
+  }
+}
+
+
+  Future<void> _selectGuideForMarking(String id) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('selected_guide_id', id);
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text("✅ Guide selected for marking.")),
     );
 
     setState(() {
-      _selectedGuideId = guideId;
+      _selectedGuideId = id;
     });
-
-    // Optionally, pop the screen if you want to return after selection
-    // Navigator.pop(context);
-  }
-
-  Future<void> _loadGuideForEditing(DocumentSnapshot doc) async {
-    final data = doc.data() as Map<String, dynamic>;
-    final List<dynamic> jsonList = data['answers'];
-
-    setState(() {
-      _guideNameController.text = data['title'];
-      _entries.clear();
-      _entries.addAll(jsonList.map((e) => AnswerEntry.fromJson(e)));
-      _initControllersFromEntries();
-    });
-
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text("✅ '${data['title']}' loaded for editing.")),
-    );
-  }
-
-  void _confirmDeleteGuide(String guideId, String guideTitle) {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text("Delete Marking Guide"),
-        content: Text("Are you sure you want to delete '$guideTitle'? This action cannot be undone."),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(),
-            child: const Text("Cancel"),
-          ),
-          TextButton(
-            onPressed: () async {
-              Navigator.of(context).pop();
-
-              try {
-                await FirebaseFirestore.instance
-                    .collection('answer_keys')
-                    .doc(guideId)
-                    .delete();
-
-                await Provider.of<DashboardProvider>(context, listen: false).fetchStats();
-
-                // If the deleted guide was selected, clear selection
-                if (_selectedGuideId == guideId) {
-                  final prefs = await SharedPreferences.getInstance();
-                  await prefs.remove('selected_guide_id');
-                  setState(() {
-                    _selectedGuideId = null;
-                  });
-                }
-
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text("✅ Guide deleted.")),
-                );
-              } catch (e) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(content: Text("❌ Failed to delete guide: $e")),
-                );
-              }
-            },
-            child: const Text("Delete", style: TextStyle(color: Colors.red)),
-          ),
-        ],
-      ),
-    );
   }
 
   Widget _buildAnswerCard(int index) {
@@ -296,7 +305,6 @@ class _AnswerKeyScreenState extends State<AnswerKeyScreen> {
       child: Padding(
         padding: const EdgeInsets.all(12),
         child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             TextField(
               controller: _questionControllers[index],
@@ -304,27 +312,24 @@ class _AnswerKeyScreenState extends State<AnswerKeyScreen> {
                 labelText: "Question",
                 border: OutlineInputBorder(),
               ),
-              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: 10),
             TextField(
               controller: _answerControllers[index],
               maxLines: null,
               decoration: const InputDecoration(
-                hintText: "Enter model answer here",
+                hintText: "Model Answer",
                 border: OutlineInputBorder(),
               ),
-              style: const TextStyle(fontSize: 14, height: 1.4),
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: 10),
             TextField(
               controller: _marksControllers[index],
               keyboardType: TextInputType.number,
               decoration: const InputDecoration(
-                labelText: "Marks",
+                labelText: "Marks (default: 1)",
                 border: OutlineInputBorder(),
               ),
-              style: const TextStyle(fontSize: 14),
             ),
           ],
         ),
@@ -338,113 +343,127 @@ class _AnswerKeyScreenState extends State<AnswerKeyScreen> {
       appBar: AppBar(title: const Text("Marking Guide Scanner")),
       drawer: const CustomDrawer(),
       body: SingleChildScrollView(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
+        padding: const EdgeInsets.all(16),
         child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            TextField(
-              controller: _guideNameController,
-              decoration: const InputDecoration(
-                labelText: 'Guide Title',
-                border: OutlineInputBorder(),
+            if (_isEditing) ...[
+              TextField(
+                controller: _guideNameController,
+                decoration: const InputDecoration(
+                  labelText: 'Guide Title',
+                  border: OutlineInputBorder(),
+                ),
               ),
-              style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 16),
-            ),
-            const SizedBox(height: 16),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-              children: [
-                ElevatedButton.icon(
-                  icon: const Icon(Icons.photo),
-                  label: const Text("Gallery"),
-                  onPressed: () => _scanFromSource(ImageSource.gallery),
-                ),
-                ElevatedButton.icon(
-                  icon: const Icon(Icons.camera_alt),
-                  label: const Text("Camera"),
-                  onPressed: () => _scanFromSource(ImageSource.camera),
-                ),
-              ],
-            ),
-            const SizedBox(height: 24),
-            if (_entries.isNotEmpty) ...[
-              const Text("Edit Scanned Questions", style: TextStyle(fontWeight: FontWeight.bold)),
-              const SizedBox(height: 10),
+              const SizedBox(height: 12),
               ListView.builder(
                 shrinkWrap: true,
                 physics: const NeverScrollableScrollPhysics(),
                 itemCount: _entries.length,
                 itemBuilder: (context, index) => _buildAnswerCard(index),
               ),
-              const SizedBox(height: 16),
+              const SizedBox(height: 10),
+              ElevatedButton.icon(
+                icon: const Icon(Icons.add),
+                label: const Text("Add Question"),
+                onPressed: _addNewQuestion,
+              ),
+              const SizedBox(height: 20),
               ElevatedButton(
                 onPressed: _isSaving ? null : _saveToFirebase,
                 child: _isSaving
-                    ? const CircularProgressIndicator(color: Colors.white)
+                    ? const CircularProgressIndicator()
                     : const Text("Save Guide"),
               ),
             ],
-            const SizedBox(height: 20),
-            const Divider(),
-            const Text("Saved Marking Guides", style: TextStyle(fontWeight: FontWeight.bold)),
-            const SizedBox(height: 10),
-            StreamBuilder<QuerySnapshot>(
-              stream: FirebaseFirestore.instance
-                  .collection('answer_keys')
-                  .orderBy('timestamp', descending: true)
-                  .snapshots(),
-              builder: (context, snapshot) {
-                if (snapshot.connectionState == ConnectionState.waiting) {
-                  return const Center(child: CircularProgressIndicator());
-                }
-                if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
-                  return const Center(child: Text("No Key Found"));
-                }
-
-                final guides = snapshot.data!.docs;
-
-                return ListView.builder(
+            if (!_isEditing) ...[
+              Row(
+                children: [
+                  Expanded(
+                    child: ElevatedButton.icon(
+                      icon: const Icon(Icons.photo),
+                      label: const Text("Gallery"),
+                      onPressed: () => _scanFromSource(ImageSource.gallery),
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: ElevatedButton.icon(
+                      icon: const Icon(Icons.camera_alt),
+                      label: const Text("Camera"),
+                      onPressed: () => _scanFromSource(ImageSource.camera),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 20),
+              const Divider(),
+              const Text(
+                "Saved Marking Guides",
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 10),
+              if (_savedGuides.isNotEmpty)
+                ListView.builder(
                   shrinkWrap: true,
                   physics: const NeverScrollableScrollPhysics(),
-                  itemCount: guides.length,
+                  itemCount: _savedGuides.length + (_hasMoreGuides ? 1 : 0),
                   itemBuilder: (context, index) {
-                    final doc = guides[index];
-                    final title = doc['title'];
-                    final timestamp = (doc['timestamp'] as Timestamp).toDate();
+                    if (index == _savedGuides.length) {
+                      _fetchSavedGuides();
+                      return const Center(
+                        child: Padding(
+                          padding: EdgeInsets.all(10),
+                          child: CircularProgressIndicator(),
+                        ),
+                      );
+                    }
 
-                    final isSelected = _selectedGuideId == doc.id;
+                    final guide = _savedGuides[index];
+                    final isSelected = guide['id'] == _selectedGuideId;
+                    final savedDate = (guide['timestamp'] as Timestamp).toDate();
 
                     return Card(
+                      elevation: 2,
+                      margin: const EdgeInsets.symmetric(vertical: 6),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                       child: ListTile(
-                        title: Text(title),
-                        subtitle: Text("Saved on ${timestamp.toLocal().toString().split(' ')[0]}"),
-                        trailing: Wrap(
-                          spacing: 10,
+                        title: Text(guide['title']),
+                        subtitle: Text(
+                          "Saved on ${savedDate.toString().substring(0, 10)}",
+                          style: const TextStyle(fontSize: 12),
+                        ),
+                        trailing: Row(
+                          mainAxisSize: MainAxisSize.min,
                           children: [
-                            IconButton(
-                              icon: const Icon(Icons.edit),
-                              onPressed: () => _loadGuideForEditing(doc),
-                            ),
-                            IconButton(
-                              icon: Icon(
-                                Icons.check_circle,
-                                color: isSelected ? Colors.green : Colors.grey,
+                            if (isSelected)
+                              Container(
+                                padding: const EdgeInsets.all(4),
+                                decoration: const BoxDecoration(
+                                  color: Colors.green,
+                                  shape: BoxShape.circle,
+                                ),
+                                child: const Icon(Icons.check, color: Colors.white, size: 16),
                               ),
-                              tooltip: 'Use for Marking',
-                              onPressed: () => _setGuideForMarking(doc.id, title),
-                            ),
-                            IconButton(
-                              icon: const Icon(Icons.delete, color: Colors.red),
-                              tooltip: 'Delete Guide',
-                              onPressed: () => _confirmDeleteGuide(doc.id, title),
+                            PopupMenuButton<String>(
+                              onSelected: (value) {
+                                if (value == 'edit') _editGuide(guide);
+                                if (value == 'delete') _deleteGuide(guide['id']);
+                                if (value == 'select') _selectGuideForMarking(guide['id']);
+                              },
+                              itemBuilder: (context) => [
+                                const PopupMenuItem(value: 'edit', child: Text('Edit')),
+                                const PopupMenuItem(value: 'delete', child: Text('Delete')),
+                                const PopupMenuItem(value: 'select', child: Text('Select for Marking')),
+                              ],
                             ),
                           ],
                         ),
                       ),
                     );
                   },
-                );
-              },
-            ),
+                ),
+            ],
           ],
         ),
       ),

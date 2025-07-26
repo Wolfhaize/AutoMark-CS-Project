@@ -40,6 +40,8 @@ class _UploadScriptScreenState extends State<UploadScriptScreen> {
   File? _markingGuide;
   final List<File> _answerScripts = [];
   String _extractedText = '';
+  String _markingGuideText = '';
+  Map<String, dynamic>? _gradingResult;
 
   Future<void> _pickImage({bool isAnswerScript = false}) async {
     try {
@@ -98,6 +100,11 @@ class _UploadScriptScreenState extends State<UploadScriptScreen> {
 
   Future<void> _processDocuments() async {
     try {
+      if (_currentStage == UploadStage.markingGuide && _markingGuide != null) {
+        final ocrService = OCRService();
+        _markingGuideText = await ocrService.extractTextFromImage(_markingGuide!);
+      }
+
       if (_currentStage == UploadStage.answerScript) {
         await _processAnswerScripts();
       }
@@ -119,25 +126,56 @@ class _UploadScriptScreenState extends State<UploadScriptScreen> {
       fullText += imageText + '\n\n';
     }
 
+    setState(() => _extractedText = fullText);
+
     if (_useAIProcessing) {
-      final aiService = AIService();
+      setState(() => _isLoading = true);
       try {
-        final extractedAnswers = await aiService.extractAnswersFromText(
-          fullText,
-          useGroq: true,
-        );
+        final aiService = AIService();
         
-        if (extractedAnswers.isNotEmpty) {
-          fullText = extractedAnswers.entries
-            .map((e) => "${e.key}: ${e.value}")
-            .join('\n');
+        // First extract the marking guide structure if available
+        List<Map<String, dynamic>> markingGuide = [];
+        if (_markingGuideText.isNotEmpty) {
+          markingGuide = await aiService.extractMarkingGuideFromText(_markingGuideText);
+        }
+
+        // Then grade the answers
+        if (markingGuide.isNotEmpty) {
+          // Extract student answers first
+          final studentAnswers = await aiService.extractAnswersFromText(
+            fullText,
+            guideQuestions: markingGuide.map((q) => q['question'].toString()).toList(),
+          );
+
+          // Then grade using the marking guide
+          _gradingResult = await aiService.gradeScript(
+            answerKey: markingGuide,
+            studentAnswers: studentAnswers,
+          );
+        } else {
+          // Fallback grading without marking guide
+          _gradingResult = await aiService.extractAndGradeAnswers(
+            studentScript: fullText,
+            markingGuideText: _markingGuideText,
+          );
         }
       } catch (aiError) {
-        _showSnackBar("AI processing failed, using raw text", isError: true);
+        _showSnackBar("AI grading failed: ${aiError.toString()}", isError: true);
+        // Fallback to just saving the extracted text
+        _gradingResult = {
+          'totalScore': 0,
+          'totalPossible': 0,
+          'percentage': '0',
+          'feedback': 'Could not grade answers due to an error',
+          'details': [],
+        };
+      } finally {
+        setState(() => _isLoading = false);
       }
+    } else {
+      // Clear any previous grading result if AI is turned off
+      _gradingResult = null;
     }
-
-    setState(() => _extractedText = fullText);
   }
 
   void _moveToNextStage() {
@@ -183,6 +221,7 @@ class _UploadScriptScreenState extends State<UploadScriptScreen> {
         'hasQuestionPaper': _questionPaper != null,
         'hasMarkingGuide': _markingGuide != null,
         'aiProcessed': _useAIProcessing,
+        'gradingResult': _gradingResult,
       };
 
       final docRef = await FirebaseFirestore.instance.collection('scripts').add(scriptData);
@@ -200,6 +239,7 @@ class _UploadScriptScreenState extends State<UploadScriptScreen> {
                 'studentNumber': scriptData['studentNumber'],
                 'ocrText': _extractedText,
                 'timestamp': scriptData['timestamp'],
+                'gradingResult': _gradingResult,
               },
               guideAnswers: [],
             ),
@@ -235,6 +275,8 @@ class _UploadScriptScreenState extends State<UploadScriptScreen> {
       _markingGuide = null;
       _answerScripts.clear();
       _extractedText = '';
+      _markingGuideText = '';
+      _gradingResult = null;
       _currentStage = UploadStage.studentInfo;
     });
   }
@@ -262,10 +304,13 @@ class _UploadScriptScreenState extends State<UploadScriptScreen> {
       setState(() {
         if (isAnswerScript) {
           _answerScripts.clear();
+          _extractedText = '';
+          _gradingResult = null;
         } else if (_currentStage == UploadStage.questionPaper) {
           _questionPaper = null;
         } else {
           _markingGuide = null;
+          _markingGuideText = '';
         }
       });
     }
@@ -583,8 +628,42 @@ class _UploadScriptScreenState extends State<UploadScriptScreen> {
                 ),
               ),
             ),
-            const SizedBox(height: 24),
             
+            if (_useAIProcessing) ...[
+              const SizedBox(height: 16),
+              const Text("AI Grading Results:", 
+                  style: TextStyle(fontWeight: FontWeight.bold)),
+              const SizedBox(height: 8),
+              if (_isLoading)
+                const CircularProgressIndicator()
+              else if (_gradingResult != null)
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.grey.shade100,
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        "Score: ${_gradingResult!['totalScore']}/${_gradingResult!['totalPossible']} "
+                        "(${_gradingResult!['percentage']}%)",
+                        style: const TextStyle(fontWeight: FontWeight.bold),
+                      ),
+                      const SizedBox(height: 8),
+                      Text(_gradingResult!['feedback']),
+                      if (_gradingResult!.containsKey('details'))
+                        ..._buildQuestionDetails(_gradingResult!['details']),
+                    ],
+                  ),
+                )
+              else
+                const Text("No grading results available",
+                    style: TextStyle(color: Colors.grey)),
+            ],
+            
+            const SizedBox(height: 24),
             Row(
               children: [
                 Expanded(
@@ -619,6 +698,33 @@ class _UploadScriptScreenState extends State<UploadScriptScreen> {
         ),
       ),
     );
+  }
+
+  List<Widget> _buildQuestionDetails(List<dynamic> details) {
+    return [
+      const SizedBox(height: 16),
+      const Text("Question Details:",
+          style: TextStyle(fontWeight: FontWeight.bold)),
+      ...details.map<Widget>((detail) {
+        return Padding(
+          padding: const EdgeInsets.only(top: 8),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text("Q: ${detail['question']}",
+                  style: const TextStyle(fontWeight: FontWeight.w500)),
+              const SizedBox(height: 4),
+              Text("Student Answer: ${detail['studentAnswer']}"),
+              const SizedBox(height: 4),
+              Text("Score: ${detail['score']}/${detail['maxScore']}"),
+              const SizedBox(height: 4),
+              Text("Feedback: ${detail['feedback']}"),
+              const Divider(height: 16),
+            ],
+          ),
+        );
+      }).toList(),
+    ];
   }
 
   @override

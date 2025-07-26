@@ -16,11 +16,14 @@ class ResultScreen extends StatefulWidget {
 }
 
 class _ResultScreenState extends State<ResultScreen> {
+  final TextEditingController _searchController = TextEditingController();
+  String _searchQuery = '';
   final List<QueryDocumentSnapshot> _results = [];
   DocumentSnapshot? _lastDocument;
   bool _isLoadingMore = false;
   bool _hasMore = true;
   final int _pageSize = 10;
+  bool _isLoading = true;
 
   @override
   void initState() {
@@ -28,9 +31,21 @@ class _ResultScreenState extends State<ResultScreen> {
     _loadInitialResults();
   }
 
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
+
   double calculateAverage(List<QueryDocumentSnapshot> docs) {
     if (docs.isEmpty) return 0;
-    final total = docs.fold(0, (sum, doc) => sum + (doc['score'] as int));
+    double total = docs.fold(0, (double sum, doc) {
+      final data = doc.data() as Map<String, dynamic>;
+      final score = (data['score'] ?? 0).toDouble();
+      final totalMarks = (data['total'] ?? 100).toDouble(); // Default to 100 if not specified
+      final percentage = (score / totalMarks) * 100;
+      return sum + percentage;
+    });
     return total / docs.length;
   }
 
@@ -39,8 +54,10 @@ class _ResultScreenState extends State<ResultScreen> {
       _results.clear();
       _lastDocument = null;
       _hasMore = true;
+      _isLoading = true;
     });
     await _fetchResults();
+    setState(() => _isLoading = false);
   }
 
   Future<void> _fetchResults() async {
@@ -112,92 +129,84 @@ class _ResultScreenState extends State<ResultScreen> {
   }
 
   Future<void> _deleteSingleResult(String docId) async {
-  try {
-    final docSnapshot = await FirebaseFirestore.instance.collection('results').doc(docId).get();
+    try {
+      final docSnapshot = await FirebaseFirestore.instance.collection('results').doc(docId).get();
 
-    if (!docSnapshot.exists) {
+      if (!docSnapshot.exists) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('❌ Result not found.')),
+        );
+        return;
+      }
+
+      final data = docSnapshot.data()!;
+
+      // Prepare history entry
+      final historyData = {
+        ...data,
+        'deletedAt': Timestamp.now(),
+        'originalId': docId,
+        'status': 'deleted',
+        'type': 'result',
+      };
+
+      // Save to history first
+      await FirebaseFirestore.instance.collection('history').doc(docId).set(historyData);
+
+      // Delete from original collection
+      await FirebaseFirestore.instance.collection('results').doc(docId).delete();
+
+      setState(() {
+        _results.removeWhere((doc) => doc.id == docId);
+      });
+
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('❌ Result not found.')),
+        const SnackBar(content: Text('✅ Result moved to history.')),
       );
-      return;
+
+      await Provider.of<DashboardProvider>(context, listen: false).fetchStats();
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('❌ Failed to delete result: $e')),
+      );
     }
-
-    final data = docSnapshot.data()!;
-
-    // Prepare history entry
-    final historyData = {
-      ...data,
-      'deletedAt': Timestamp.now(),
-      'originalId': docId,
-      'status': 'deleted',
-      'type': 'result', // Optional: to distinguish results from scripts
-    };
-
-    // Save to history first
-    await FirebaseFirestore.instance.collection('history').doc(docId).set(historyData);
-
-    // Delete from original collection
-    await FirebaseFirestore.instance.collection('results').doc(docId).delete();
-
-    setState(() {
-      _results.removeWhere((doc) => doc.id == docId);
-    });
-
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('✅ Result moved to history.')),
-    );
-
-    await Provider.of<DashboardProvider>(context, listen: false).fetchStats();
-  } catch (e) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('❌ Failed to delete result: $e')),
-    );
   }
-}
-  @override
-  Widget build(BuildContext context) {
-    final avgScore = calculateAverage(_results).toStringAsFixed(1);
 
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text("Results & Insights"),
-        centerTitle: true,
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.picture_as_pdf),
-            tooltip: 'Export Summary',
-            onPressed: _generateReport,
+  List<QueryDocumentSnapshot> _filterResults() {
+    if (_searchQuery.isEmpty) return _results;
+    
+    return _results.where((doc) {
+      final data = doc.data() as Map<String, dynamic>;
+      final name = (data['name'] ?? '').toString().toLowerCase();
+      final number = (data['number'] ?? '').toString().toLowerCase();
+      final query = _searchQuery.toLowerCase();
+      return name.contains(query) || number.contains(query);
+    }).toList();
+  }
+
+  Widget _buildSearchBar() {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+      child: TextField(
+        controller: _searchController,
+        decoration: InputDecoration(
+          hintText: 'Search by name or student number...',
+          prefixIcon: const Icon(Icons.search),
+          border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(12),
           ),
-        ],
+          suffixIcon: _searchQuery.isNotEmpty
+              ? IconButton(
+                  icon: const Icon(Icons.clear),
+                  onPressed: () {
+                    _searchController.clear();
+                    setState(() => _searchQuery = '');
+                  },
+                )
+              : null,
+        ),
+        onChanged: (value) => setState(() => _searchQuery = value),
       ),
-      drawer: const CustomDrawer(),
-      body: _results.isEmpty
-          ? _isLoadingMore
-              ? const Center(child: CircularProgressIndicator())
-              : const Center(child: Text("No results available yet."))
-          : RefreshIndicator(
-              onRefresh: _loadInitialResults,
-              child: ListView.builder(
-                itemCount: _results.length + (_hasMore ? 1 : 0),
-                itemBuilder: (context, index) {
-                  if (index == 0) {
-                    return _buildSummaryHeader(avgScore);
-                  }
-
-                  if (_hasMore && index == _results.length) {
-                    _fetchResults();
-                    return const Padding(
-                      padding: EdgeInsets.all(12),
-                      child: Center(child: CircularProgressIndicator()),
-                    );
-                  }
-
-                  final doc = _results[index - 1];
-                  return _buildResultCard(doc);
-                },
-              ),
-            ),
-      bottomNavigationBar: const AutoMarkBottomNav(currentIndex: 2),
     );
   }
 
@@ -210,7 +219,13 @@ class _ResultScreenState extends State<ResultScreen> {
           Text("Class Performance",
               style: Theme.of(context).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.bold)),
           const SizedBox(height: 8),
-          Text("Average Score: $avgScore%", style: const TextStyle(fontWeight: FontWeight.w600)),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text("Average Score: $avgScore%", style: const TextStyle(fontWeight: FontWeight.w600)),
+              Text("Submissions: ${_results.length}", style: const TextStyle(fontWeight: FontWeight.w600)),
+            ],
+          ),
           const Divider(height: 30),
           const Text("Student Scores", style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
           const SizedBox(height: 10),
@@ -223,7 +238,10 @@ class _ResultScreenState extends State<ResultScreen> {
     final data = doc.data() as Map<String, dynamic>;
 
     final name = data['name'] ?? 'Unnamed';
-    final score = data['score'] ?? 0;
+    final number = data['number'] ?? '';
+    final score = (data['score'] ?? 0).toDouble();
+    final total = (data['total'] ?? 100).toDouble();
+    final percentage = (score / total * 100).toStringAsFixed(1);
     final method = data['method'] ?? 'manual';
     final feedback = data['feedback'] ?? '';
 
@@ -243,6 +261,13 @@ class _ResultScreenState extends State<ResultScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(name, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w500)),
+                if (number.isNotEmpty) ...[
+                  const SizedBox(height: 4),
+                  Text("Student No: $number", style: const TextStyle(fontSize: 14)),
+                ],
+                const SizedBox(height: 4),
+                Text("Score: ${score.toStringAsFixed(score % 1 == 0 ? 0 : 2)}/${total.toStringAsFixed(total % 1 == 0 ? 0 : 2)} ($percentage%)",
+                    style: const TextStyle(fontSize: 14)),
                 const SizedBox(height: 4),
                 Text("Method: ${method.toUpperCase()}",
                     style: const TextStyle(fontSize: 12, color: Colors.grey)),
@@ -254,11 +279,17 @@ class _ResultScreenState extends State<ResultScreen> {
               ],
             ),
           ),
-          const SizedBox(width: 12),
           Column(
             children: [
-              Text("$score%",
-                  style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.green)),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                decoration: BoxDecoration(
+                  color: _getPercentageColor(double.parse(percentage)),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Text("$percentage%",
+                    style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Colors.white)),
+              ),
               IconButton(
                 icon: const Icon(Icons.delete, color: Colors.red),
                 onPressed: () => _deleteSingleResult(doc.id),
@@ -267,6 +298,84 @@ class _ResultScreenState extends State<ResultScreen> {
           ),
         ],
       ),
+    );
+  }
+
+  Color _getPercentageColor(double percentage) {
+    if (percentage >= 70) return Colors.green;
+    if (percentage >= 50) return Colors.blue;
+    if (percentage >= 30) return Colors.orange;
+    return Colors.red;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final filteredResults = _filterResults();
+    final avgScore = calculateAverage(_results).toStringAsFixed(1);
+
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text("Results & Insights"),
+        centerTitle: true,
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.picture_as_pdf),
+            tooltip: 'Export Summary',
+            onPressed: _generateReport,
+          ),
+          IconButton(
+            icon: const Icon(Icons.refresh),
+            tooltip: 'Refresh',
+            onPressed: _loadInitialResults,
+          ),
+        ],
+      ),
+      drawer: const CustomDrawer(),
+      body: _isLoading
+          ? const Center(child: CircularProgressIndicator())
+          : Column(
+              children: [
+                _buildSearchBar(),
+                Expanded(
+                  child: RefreshIndicator(
+                    onRefresh: _loadInitialResults,
+                    child: _results.isEmpty
+                        ? const Center(child: Text("No results available yet."))
+                        : ListView.builder(
+                            itemCount: filteredResults.isEmpty 
+                                ? 2 // For header and "no results" message
+                                : filteredResults.length + 1 + (_hasMore ? 1 : 0),
+                            itemBuilder: (context, index) {
+                              if (index == 0) {
+                                return _buildSummaryHeader(avgScore);
+                              }
+                              
+                              if (filteredResults.isEmpty) {
+                                return const Center(
+                                  child: Padding(
+                                    padding: EdgeInsets.all(16.0),
+                                    child: Text("No results match your search."),
+                                  ),
+                                );
+                              }
+                              
+                              if (_hasMore && index == filteredResults.length + 1) {
+                                _fetchResults();
+                                return const Padding(
+                                  padding: EdgeInsets.all(12),
+                                  child: Center(child: CircularProgressIndicator()),
+                                );
+                              }
+                              
+                              final doc = filteredResults[index - 1];
+                              return _buildResultCard(doc);
+                            },
+                          ),
+                  ),
+                ),
+              ],
+            ),
+      bottomNavigationBar: const AutoMarkBottomNav(currentIndex: 2),
     );
   }
 }

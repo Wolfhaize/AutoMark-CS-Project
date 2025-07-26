@@ -2,11 +2,11 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:google_mlkit_text_recognition/google_mlkit_text_recognition.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:provider/provider.dart';
 
-import '../services/ai_service.dart';
 import '../services/ocr_service.dart';
+import '../services/ai_service.dart';
 import '../widgets/bottom_navbar.dart';
 import '../widgets/custom_drawer.dart';
 import '../screens/mark_script_screen.dart';
@@ -43,6 +43,43 @@ class _UploadScriptScreenState extends State<UploadScriptScreen> {
   String _markingGuideText = '';
   Map<String, dynamic>? _gradingResult;
 
+  // Saved marking guides
+  List<Map<String, dynamic>> _savedMarkingGuides = [];
+  String? _selectedMarkingGuideId;
+
+  @override
+  void initState() {
+    super.initState();
+    _fetchSavedMarkingGuides();
+  }
+
+  Future<void> _fetchSavedMarkingGuides() async {
+    final currentUser = FirebaseAuth.instance.currentUser;
+    if (currentUser == null) return;
+
+    try {
+      final snapshot = await FirebaseFirestore.instance
+          .collection('marking_guides')
+          .where('userId', isEqualTo: currentUser.uid)
+          .orderBy('timestamp', descending: true)
+          .limit(50)
+          .get();
+
+      setState(() {
+        _savedMarkingGuides = snapshot.docs.map((doc) {
+          final data = doc.data();
+          return {
+            'id': doc.id,
+            'title': data['title'] ?? 'Untitled Guide',
+            'answers': data['answers'] ?? [],
+          };
+        }).toList();
+      });
+    } catch (e) {
+      _showSnackBar("Failed to load marking guides: $e", isError: true);
+    }
+  }
+
   Future<void> _pickImage({bool isAnswerScript = false}) async {
     try {
       final pickedFile = await _imagePicker.pickImage(
@@ -59,6 +96,7 @@ class _UploadScriptScreenState extends State<UploadScriptScreen> {
             _questionPaper = File(pickedFile.path);
           } else if (_currentStage == UploadStage.markingGuide) {
             _markingGuide = File(pickedFile.path);
+            _selectedMarkingGuideId = null;
           }
         });
 
@@ -87,6 +125,7 @@ class _UploadScriptScreenState extends State<UploadScriptScreen> {
             _questionPaper = File(pickedFile.path);
           } else if (_currentStage == UploadStage.markingGuide) {
             _markingGuide = File(pickedFile.path);
+            _selectedMarkingGuideId = null;
           }
         });
 
@@ -133,27 +172,31 @@ class _UploadScriptScreenState extends State<UploadScriptScreen> {
       try {
         final aiService = AIService();
         
-        // First extract the marking guide structure if available
         List<Map<String, dynamic>> markingGuide = [];
-        if (_markingGuideText.isNotEmpty) {
+        
+        if (_selectedMarkingGuideId != null) {
+          final guide = _savedMarkingGuides.firstWhere(
+            (g) => g['id'] == _selectedMarkingGuideId,
+            orElse: () => {},
+          );
+          if (guide.isNotEmpty) {
+            markingGuide = (guide['answers'] as List).cast<Map<String, dynamic>>();
+          }
+        } else if (_markingGuideText.isNotEmpty) {
           markingGuide = await aiService.extractMarkingGuideFromText(_markingGuideText);
         }
 
-        // Then grade the answers
         if (markingGuide.isNotEmpty) {
-          // Extract student answers first
           final studentAnswers = await aiService.extractAnswersFromText(
             fullText,
             guideQuestions: markingGuide.map((q) => q['question'].toString()).toList(),
           );
 
-          // Then grade using the marking guide
           _gradingResult = await aiService.gradeScript(
             answerKey: markingGuide,
             studentAnswers: studentAnswers,
           );
         } else {
-          // Fallback grading without marking guide
           _gradingResult = await aiService.extractAndGradeAnswers(
             studentScript: fullText,
             markingGuideText: _markingGuideText,
@@ -161,7 +204,6 @@ class _UploadScriptScreenState extends State<UploadScriptScreen> {
         }
       } catch (aiError) {
         _showSnackBar("AI grading failed: ${aiError.toString()}", isError: true);
-        // Fallback to just saving the extracted text
         _gradingResult = {
           'totalScore': 0,
           'totalPossible': 0,
@@ -173,7 +215,6 @@ class _UploadScriptScreenState extends State<UploadScriptScreen> {
         setState(() => _isLoading = false);
       }
     } else {
-      // Clear any previous grading result if AI is turned off
       _gradingResult = null;
     }
   }
@@ -219,12 +260,24 @@ class _UploadScriptScreenState extends State<UploadScriptScreen> {
         'userId': currentUser.uid,
         'answerScriptCount': _answerScripts.length,
         'hasQuestionPaper': _questionPaper != null,
-        'hasMarkingGuide': _markingGuide != null,
+        'hasMarkingGuide': _markingGuide != null || _selectedMarkingGuideId != null,
         'aiProcessed': _useAIProcessing,
         'gradingResult': _gradingResult,
+        'markingGuideId': _selectedMarkingGuideId,
       };
 
       final docRef = await FirebaseFirestore.instance.collection('scripts').add(scriptData);
+
+      if (_markingGuide != null && _markingGuideText.isNotEmpty) {
+        final markingGuide = await AIService().extractMarkingGuideFromText(_markingGuideText);
+        await FirebaseFirestore.instance.collection('marking_guides').add({
+          'title': 'Marking guide from ${_nameController.text.trim()}',
+          'answers': markingGuide,
+          'timestamp': Timestamp.now(),
+          'userId': currentUser.uid,
+          'source': 'upload',
+        });
+      }
 
       _showSnackBar("Script saved successfully!");
 
@@ -277,6 +330,7 @@ class _UploadScriptScreenState extends State<UploadScriptScreen> {
       _extractedText = '';
       _markingGuideText = '';
       _gradingResult = null;
+      _selectedMarkingGuideId = null;
       _currentStage = UploadStage.studentInfo;
     });
   }
@@ -327,6 +381,85 @@ class _UploadScriptScreenState extends State<UploadScriptScreen> {
     );
   }
 
+  Widget _buildMarkingGuideSelection() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          "Select Marking Guide",
+          style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+        ),
+        const SizedBox(height: 10),
+        if (_savedMarkingGuides.isNotEmpty)
+          DropdownButtonFormField<String>(
+            value: _selectedMarkingGuideId,
+            decoration: const InputDecoration(
+              border: OutlineInputBorder(),
+              hintText: "Select a saved marking guide",
+            ),
+            items: [
+              const DropdownMenuItem<String>(
+                value: null,
+                child: Text("Upload new marking guide"),
+              ),
+              ..._savedMarkingGuides.map<DropdownMenuItem<String>>((guide) {
+                return DropdownMenuItem<String>(
+                  value: guide['id'] as String,
+                  child: Text(guide['title'] as String),
+                );
+              }),
+            ],
+            onChanged: (String? value) {
+              setState(() {
+                _selectedMarkingGuideId = value;
+                if (value != null) {
+                  _markingGuide = null;
+                }
+              });
+            },
+          ),
+        const SizedBox(height: 20),
+        if (_selectedMarkingGuideId == null)
+          Column(
+            children: [
+              const Text(
+                "Or upload new marking guide",
+                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 10),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                children: [
+                  ElevatedButton.icon(
+                    icon: const Icon(Icons.photo),
+                    label: const Text("Gallery"),
+                    onPressed: _isLoading ? null : () => _pickImage(),
+                  ),
+                  ElevatedButton.icon(
+                    icon: const Icon(Icons.camera_alt),
+                    label: const Text("Camera"),
+                    onPressed: _isLoading ? null : () => _captureImage(),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        if (_markingGuide != null)
+          Padding(
+            padding: const EdgeInsets.only(top: 10),
+            child: ListTile(
+              leading: const Icon(Icons.image),
+              title: Text(_markingGuide!.path.split('/').last),
+              trailing: IconButton(
+                icon: const Icon(Icons.close),
+                onPressed: () => _removeFile(false),
+              ),
+            ),
+          ),
+      ],
+    );
+  }
+
   Widget _buildCurrentStage() {
     switch (_currentStage) {
       case UploadStage.studentInfo:
@@ -336,15 +469,9 @@ class _UploadScriptScreenState extends State<UploadScriptScreen> {
           title: "Upload Question Paper",
           description: "Please upload the question paper (image)",
           file: _questionPaper,
-          isAnswerScript: false,
         );
       case UploadStage.markingGuide:
-        return _buildDocumentStage(
-          title: "Upload Marking Guide",
-          description: "Please upload the marking guide (image)",
-          file: _markingGuide,
-          isAnswerScript: false,
-        );
+        return _buildMarkingGuideStage();
       case UploadStage.answerScript:
         return _buildDocumentStage(
           title: "Upload Answer Script",
@@ -354,6 +481,8 @@ class _UploadScriptScreenState extends State<UploadScriptScreen> {
         );
       case UploadStage.review:
         return _buildReviewStage();
+      default:
+        return const SizedBox();
     }
   }
 
@@ -406,11 +535,56 @@ class _UploadScriptScreenState extends State<UploadScriptScreen> {
     );
   }
 
+  Widget _buildMarkingGuideStage() {
+    return Card(
+      elevation: 4,
+      child: Padding(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          children: [
+            const Text(
+              "Marking Guide",
+              style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 10),
+            const Text(
+              "Select a saved marking guide or upload a new one",
+              style: TextStyle(color: Colors.grey),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 20),
+            _buildMarkingGuideSelection(),
+            const SizedBox(height: 20),
+            Row(
+              children: [
+                Expanded(
+                  child: OutlinedButton(
+                    onPressed: _moveToPreviousStage,
+                    child: const Text("Back"),
+                  ),
+                ),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: ElevatedButton(
+                    onPressed: (_markingGuide != null || _selectedMarkingGuideId != null) 
+                        ? _moveToNextStage 
+                        : null,
+                    child: const Text("Continue"),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   Widget _buildDocumentStage({
     required String title,
     required String description,
     required File? file,
-    required bool isAnswerScript,
+    bool isAnswerScript = false,
   }) {
     final hasFile = isAnswerScript ? _answerScripts.isNotEmpty : file != null;
     final fileCount = isAnswerScript ? _answerScripts.length : 0;
@@ -589,7 +763,9 @@ class _UploadScriptScreenState extends State<UploadScriptScreen> {
             const Text("Documents:", 
                 style: TextStyle(fontWeight: FontWeight.bold)),
             Text("Question Paper: ${_questionPaper?.path.split('/').last ?? 'Not provided'}"),
-            Text("Marking Guide: ${_markingGuide?.path.split('/').last ?? 'Not provided'}"),
+            Text("Marking Guide: ${_selectedMarkingGuideId != null 
+                ? 'Using saved guide' 
+                : _markingGuide?.path.split('/').last ?? 'Not provided'}"),
             Text("Answer Scripts: ${_answerScripts.length} file(s)"),
             const SizedBox(height: 16),
             
@@ -733,7 +909,7 @@ class _UploadScriptScreenState extends State<UploadScriptScreen> {
       appBar: AppBar(
         title: Text(_currentStage == UploadStage.studentInfo
             ? "New Script Upload"
-            : "Step ${_currentStage.index} of ${UploadStage.values.length - 1}"),
+            : "Step ${_currentStage.index + 1} of ${UploadStage.values.length - 1}"),
         centerTitle: true,
         actions: [
           if (_currentStage == UploadStage.review)
@@ -754,7 +930,7 @@ class _UploadScriptScreenState extends State<UploadScriptScreen> {
             children: [
               if (_currentStage != UploadStage.studentInfo)
                 LinearProgressIndicator(
-                  value: (_currentStage.index) / (UploadStage.values.length - 1),
+                  value: (_currentStage.index + 1) / (UploadStage.values.length - 1),
                   minHeight: 8,
                   backgroundColor: Colors.grey.shade200,
                 ),

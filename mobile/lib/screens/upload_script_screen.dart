@@ -20,6 +20,7 @@ class UploadScriptScreen extends StatefulWidget {
 class _UploadScriptScreenState extends State<UploadScriptScreen> {
   final List<File> _imageFiles = [];
   final TextEditingController _nameController = TextEditingController();
+  final TextEditingController _studentNumberController = TextEditingController();
   final ImagePicker _picker = ImagePicker();
 
   String _extractedText = '';
@@ -114,10 +115,13 @@ class _UploadScriptScreenState extends State<UploadScriptScreen> {
   final name = _nameController.text.trim().isEmpty
       ? 'Student ${DateTime.now().millisecondsSinceEpoch}'
       : _nameController.text.trim();
+  
+  final studentNumber = _studentNumberController.text.trim();
 
   try {
     final docRef = await FirebaseFirestore.instance.collection('scripts').add({
       'name': name,
+      'studentNumber': studentNumber,
       'ocrText': _extractedText,
       'status': 'unmarked',
       'timestamp': Timestamp.now(),
@@ -134,6 +138,7 @@ class _UploadScriptScreenState extends State<UploadScriptScreen> {
             script: {
               'id': docRef.id,
               'name': name,
+              'studentNumber': studentNumber,
               'ocrText': _extractedText,
               'timestamp': Timestamp.now(),
             },
@@ -153,6 +158,7 @@ class _UploadScriptScreenState extends State<UploadScriptScreen> {
   void _clearForm() {
     setState(() {
       _nameController.clear();
+      _studentNumberController.clear();
       _imageFiles.clear();
       _extractedText = '';
     });
@@ -193,6 +199,16 @@ class _UploadScriptScreenState extends State<UploadScriptScreen> {
                 decoration: const InputDecoration(
                   labelText: 'Student Name',
                   border: OutlineInputBorder(),
+                ),
+              ),
+              const SizedBox(height: 20),
+              
+              TextField(
+                controller: _studentNumberController,
+                decoration: const InputDecoration(
+                  labelText: 'Student Number',
+                  border: OutlineInputBorder(),
+                  hintText: 'e.g., 2023/001234',
                 ),
               ),
               const SizedBox(height: 20),

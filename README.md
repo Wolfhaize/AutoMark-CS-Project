@@ -1,7 +1,7 @@
  patrick
 # AutoMark – Smart Grading Assistant
 
-**AutoMark** is a mobile application designed to help **Educators (Teachers and Lecturers)** automatically mark student exam scripts and assign grades with the assistance of **AI and OCR (Optical Character Recognition)** and also generate a pdf for the reuslts.
+**AutoMark** is a mobile application designed to help **Educators (Teachers and Lecturers)** automatically mark student exam scripts and assign grades with the assistance of **AI and OCR (Optical Character Recognition)** and also generate a pdf for the results.
 
 The app simplifies the grading process by offering two main options:
 

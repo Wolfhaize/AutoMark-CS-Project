@@ -33,7 +33,7 @@ Visit our project website for:
 *  **APK Download ***
 
 **Hosted on GitHub Pages:**
- [AutoMark Project Website](https://Lyazi-Patrick.github.io/AutoMark-CS-Project/website/)
+ [AutoMark Project Website](https://automarking.netlify.app/)
 
 
 ## Technologies Used

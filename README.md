@@ -138,7 +138,7 @@ If using the backend:
 | [Kato Adrian Mugerwa](https://github.com/Wolfhaize)   | 24/U/25909/PS |
 | [Ssekidde Jovan](https://github.com/Jovans-code)   | 24/U/24746/PS |
 | [Wanswa Drake](https://github.com/ffne4)   | 24/U/20699/PS |
-| [Mila Samantha](https://github.com/Samantha7404)   | 24/U/24201/PS|
+| [Mila Samantha Likiya ](https://github.com/Samantha7404)   | 24/U/24201/PS|
 
 
 ##  License
